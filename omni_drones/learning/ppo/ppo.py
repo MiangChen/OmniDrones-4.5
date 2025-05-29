@@ -100,7 +100,7 @@ class PPOPolicy(TensorDictModuleBase):
         self.entropy_coef = 0.001
         self.clip_param = 0.1
         self.critic_loss_fn = nn.HuberLoss(delta=10)
-        self.n_agents, self.action_dim = action_spec["agents"]["action"].shape[-2:]  # action_spec.shape[-2:]
+        self.n_agents, self.action_dim = action_spec.shape[-2:] # action_spec["agents"]["action"].shape[-2:]  # for torchrl = 0.8x
         self.gae = GAE(0.99, 0.95)
 
         fake_input = observation_spec.zero()
