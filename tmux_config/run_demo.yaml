@@ -13,4 +13,4 @@ windows:
         - python demo_transport.py
       - shell_command:
         - sleep 2m
-        - python demo_task_fail.py
+        - python demo_task.py

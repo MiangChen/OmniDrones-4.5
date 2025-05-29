@@ -7,7 +7,7 @@ windows:
       - cd examples
     panes:
       - shell_command:
-        - python t_rate_controller_fail.py
+        - python t_rate_controller.py
       - shell_command:
         - sleep 1m
         - python t_att_controller.py

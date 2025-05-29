@@ -251,6 +251,8 @@ class MultirotorBase(RobotBase):
         # v = 3.2 * 1000
         # thrusts = torch.tensor([[[v, v, v, v]]], device=self.device)
         # self.throttle = thrusts / 1000
+        # self.throttle = torch.tensor([[[1., 1., 1., 1.]]], device=self.device)
+        # print("self.throttle",self.throttle)
         rotor_pos, rotor_rot = self.rotors_view.get_world_poses()
         torque_axis = quat_axis(rotor_rot.flatten(end_dim=-2), axis=2).unflatten(0, (*self.shape, self.num_rotors))
 

@@ -15,8 +15,12 @@ setup(
         "einops",
         "pandas",
         "moviepy",
-        "av",
+        "av==13.1.0",  # av 14.0.0 doesn't work for torch 2.5.0
         # "torchrl==0.3.1", # for torch==2.2.2
-        "torchrl==0.6.0", # for torch==2.5.0
+        # TorchRL 0.5 requires PyTorch 2.4.0, and TorchRL 0.6 requires PyTorch 2.5.0.
+        # omni drone's version requirement is 0.3.1 which is for torch 2.2.x,  and the newest version is 0.8.1
+        "torchrl==0.6.0",  # for torch==2.5.0
+        "tensordict==0.6.0"  # for torchrl 0.6.0
+
     ],
 )
