@@ -12,9 +12,13 @@ In this repository, I have migrated it to Isaac Sim 4.5. It is recommended to us
 
 Refer to the official `pip install` method: [https://isaac-sim.github.io/IsaacLab/main/source/setup/installation/pip_installation.html](https://isaac-sim.github.io/IsaacLab/main/source/setup/installation/pip_installation.html)
 
+## Result
+![train](docs/source/_static/bug/train.mp4)
+
 ## Unresolved Issues
 
 When running the following command:
+
 
 ```python
 python examples/00_play_drones.py

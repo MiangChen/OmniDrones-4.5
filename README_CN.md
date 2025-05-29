@@ -9,6 +9,9 @@
 ## 安装方法
 参考官方的pip install方法 https://isaac-sim.github.io/IsaacLab/main/source/setup/installation/pip_installation.html
 
+## 效果
+![train](docs/source/_static/bug/train.mp4)
+
 ## 尚未解决的问题
 运行 
 ```python
