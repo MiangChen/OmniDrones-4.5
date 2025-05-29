@@ -19,10 +19,16 @@ Refer to the official `pip install` method: [https://isaac-sim.github.io/IsaacLa
 
 When running the following command:
 
-
 ```python
 python examples/00_play_drones.py
 ```
+
 The drones render correctly, but they are unable to fly.
 
 ![drones unable to fly](docs/source/_static/bug/bug1.jpg)
+
+I have performed a low-level modification by relocating `self.throttle` within `omni_drones/robots/drone/multirotor.py` and `omni_drones/actuators/rotor_group.py`. 
+Despite setting self.throttle to torch.tensor([[[1, 1, 1, 1]]]), the drone fails to achieve flight. I am currently uncertain of the root cause.
+
+![source1](docs/source/_static/bug/bug2.jpg)
+![source2](docs/source/_static/bug/bug3.jpg)

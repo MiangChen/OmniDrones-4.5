@@ -244,15 +244,14 @@ class MultirotorBase(RobotBase):
         rotor_cmds = actions.expand(*self.shape, self.num_rotors)  # action是
         last_throttle = self.throttle.clone()
         # todo
+        # 我在这里把self.throttle作为一个参数输入, 而不是在vmap中修改self.throttle的数值(这会导致维度报错), 通过回传的throttle来修改self.throttle
+        # Instead of modifying self.throttle directly within the vmap (which causes a dimension error),
+        # I’m passing self.throttle as an input parameter and then updating self.throttle with the returned throttle value.
+        # vmap调用的函数是 rotors的forward()函数
+        # Here, self.throttle is passed as an input parameter to self.rotors.forward(), the function being called by vmap.
         thrusts, moments, self.throttle = vmap(vmap(self.rotors, randomness="different"), randomness="same")(
             rotor_cmds, self.throttle.clone()
-        )  # [1,4,4]
-        # print(self.throttle)
-        # v = 3.2 * 1000
-        # thrusts = torch.tensor([[[v, v, v, v]]], device=self.device)
-        # self.throttle = thrusts / 1000
-        # self.throttle = torch.tensor([[[1., 1., 1., 1.]]], device=self.device)
-        # print("self.throttle",self.throttle)
+        )  # [n_env, n_drone, 4]
         rotor_pos, rotor_rot = self.rotors_view.get_world_poses()
         torque_axis = quat_axis(rotor_rot.flatten(end_dim=-2), axis=2).unflatten(0, (*self.shape, self.num_rotors))
 
