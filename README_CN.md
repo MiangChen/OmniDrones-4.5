@@ -10,7 +10,7 @@
 参考官方的pip install方法 https://isaac-sim.github.io/IsaacLab/main/source/setup/installation/pip_installation.html
 
 ## 效果
-![train](docs/source/_static/bug/train.mp4)
+![train](docs/source/_static/train.mp4)
 
 ## 尚未解决的问题
 运行 
@@ -18,4 +18,4 @@
 python examples/00_play_drones.py
 ```
 无人机可以渲染出来, 但是无法飞行
-![无人机无法飞行](docs/source/_static/bug/bug1.jpg)
+![drones unable to fly](docs/source/_static/bug/bug1.jpg)
