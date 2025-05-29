@@ -27,5 +27,5 @@ python examples/00_play_drones.py
 目前我对底层进行了一个修改, 调整了self.throttle的位置, 这两个文件分别是`omni_drones/robots/drone/multirotor.py`和`omni_drones/actuators/rotor_group.py`
 但是尽管我将self.throttle设置为torch.tensor([[[1, 1, 1, 1]]]), 无人机也无法飞起来, 我不太确定到底是什么原因导致的
 
-![source1](docs/source/_static/bug/bug2.jpg)
-![source2](docs/source/_static/bug/bug3.jpg)
+![source1](docs/source/_static/bug/bug2.png)
+![source2](docs/source/_static/bug/bug3.png)

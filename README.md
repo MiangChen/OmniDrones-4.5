@@ -30,5 +30,5 @@ The drones render correctly, but they are unable to fly.
 I have performed a low-level modification by relocating `self.throttle` within `omni_drones/robots/drone/multirotor.py` and `omni_drones/actuators/rotor_group.py`. 
 Despite setting self.throttle to torch.tensor([[[1, 1, 1, 1]]]), the drone fails to achieve flight. I am currently uncertain of the root cause.
 
-![source1](docs/source/_static/bug/bug2.jpg)
-![source2](docs/source/_static/bug/bug3.jpg)
+![source1](docs/source/_static/bug/bug2.png)
+![source2](docs/source/_static/bug/bug3.png)
