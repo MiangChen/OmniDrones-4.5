@@ -21,7 +21,6 @@
 # SOFTWARE.
 
 
-import time
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
@@ -35,7 +34,6 @@ from torch.optim import lr_scheduler
 
 from torchrl.data import (
     BoundedTensorSpec,
-    CompositeSpec,
     MultiDiscreteTensorSpec,
     DiscreteTensorSpec,
     TensorSpec,
@@ -52,7 +50,7 @@ LR_SCHEDULER = lr_scheduler._LRScheduler
 
 class MAPPOPolicy(object):
     def __init__(
-        self, cfg, agent_spec: AgentSpec, device="cuda"
+            self, cfg, agent_spec: AgentSpec, device="cuda"
     ) -> None:
         super().__init__()
 
@@ -229,8 +227,8 @@ class MAPPOPolicy(object):
         ratio = torch.exp(log_probs_new - log_probs_old)
         surr1 = ratio * advantages
         surr2 = (
-            torch.clamp(ratio, 1.0 - self.clip_param, 1.0 + self.clip_param)
-            * advantages
+                torch.clamp(ratio, 1.0 - self.clip_param, 1.0 + self.clip_param)
+                * advantages
         )
         policy_loss = - torch.mean(torch.min(surr1, surr2) * self.act_dim)
         entropy_loss = - torch.mean(dist_entropy)
@@ -319,7 +317,7 @@ class MAPPOPolicy(object):
         advantages_std = tensordict["advantages"].std()
         if self.normalize_advantages:
             tensordict["advantages"] = (tensordict["advantages"] - advantages_mean) / (
-                advantages_std + 1e-8
+                    advantages_std + 1e-8
             )
 
         if hasattr(self, "value_normalizer"):
@@ -373,7 +371,7 @@ class MAPPOPolicy(object):
 
 
 def make_dataset_naive(
-    tensordict: TensorDict, num_minibatches: int = 4, seq_len: int = 1
+        tensordict: TensorDict, num_minibatches: int = 4, seq_len: int = 1
 ):
     if seq_len > 1:
         N, T = tensordict.shape
@@ -401,6 +399,7 @@ from .modules.distributions import (
 )
 
 from .common import make_encoder
+
 
 def make_ppo_actor(cfg, observation_spec: TensorSpec, action_spec: TensorSpec):
     encoder = make_encoder(cfg, observation_spec)
@@ -438,20 +437,20 @@ def make_critic(cfg, state_spec: TensorSpec, reward_spec: TensorSpec, centralize
 
 class Actor(nn.Module):
     def __init__(
-        self,
-        encoder: nn.Module,
-        act_dist: nn.Module,
+            self,
+            encoder: nn.Module,
+            act_dist: nn.Module,
     ) -> None:
         super().__init__()
         self.encoder = encoder
         self.act_dist = act_dist
 
     def forward(
-        self,
-        obs: Union[torch.Tensor, TensorDict],
-        action: torch.Tensor = None,
-        deterministic=False,
-        eval_action=False
+            self,
+            obs: Union[torch.Tensor, TensorDict],
+            action: torch.Tensor = None,
+            deterministic=False,
+            eval_action=False
     ):
         actor_features = self.encoder(obs)
         action_dist = self.act_dist(actor_features)
@@ -469,10 +468,10 @@ class Actor(nn.Module):
 
 class Critic(nn.Module):
     def __init__(
-        self,
-        base: nn.Module,
-        v_out: nn.Module,
-        output_shape: torch.Size=torch.Size((-1,)),
+            self,
+            base: nn.Module,
+            v_out: nn.Module,
+            output_shape: torch.Size = torch.Size((-1,)),
     ):
         super().__init__()
         self.base = base
@@ -486,5 +485,3 @@ class Critic(nn.Module):
         if len(self.output_shape) > 1:
             values = values.unflatten(-1, self.output_shape)
         return values
-
-

@@ -19,20 +19,28 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-import math
 
+import math
 from typing import Optional, Union, Sequence
 
-import omni.isaac.core.utils.prims as prim_utils
-import omni.isaac.core.utils.stage as stage_utils
-import omni.replicator.core as rep
-
+from tensordict import TensorDict
 import torch
 import warp as wp
-from omni.isaac.core.prims import XFormPrim
-from omni.isaac.core.simulation_context import SimulationContext
+
+# todo
+# import omni.isaac.core.utils.prims as prim_utils
+# import omni.isaac.core.utils.stage as stage_utils
+# import omni.replicator.core as rep
+# from omni.isaac.core.prims import XFormPrim
+# from omni.isaac.core.simulation_context import SimulationContext
+# from pxr import Gf, Sdf, UsdGeom
+from isaacsim.core.api import SimulationContext
+from isaacsim.core.prims import XFormPrim as XFormPrimView
+import isaacsim.core.utils.prims as prim_utils
+import isaacsim.core.utils.stage as stage_utils
+import omni.replicator.core as rep
 from pxr import Gf, Sdf, UsdGeom
-from tensordict import TensorDict
+
 
 from omni_drones.utils.math import quaternion_to_euler
 from .config import FisheyeCameraCfg, PinholeCameraCfg

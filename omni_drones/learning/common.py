@@ -81,7 +81,8 @@ def sample_sub_traj(traj, seq_len):
     return traj[t]
 
 
-from torchrl.data import BoundedTensorSpec, UnboundedContinuousTensorSpec, CompositeSpec, TensorSpec
+from torchrl.data import BoundedTensorSpec, UnboundedContinuousTensorSpec, TensorSpec
+from torchrl.data import  Composite as CompositeSpec
 from .modules.networks import MLP, ENCODERS_MAP, VISION_ENCODER_MAP, MixedEncoder
 from functools import partial
 

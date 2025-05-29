@@ -21,23 +21,23 @@
 # SOFTWARE.
 
 
-import omni_drones.utils.kit as kit_utils
-from omni_drones.utils.torch import euler_to_quaternion, quat_rotate
-import omni.isaac.core.utils.prims as prim_utils
 import torch
 import torch.distributions as D
 from torch.func import vmap
+from tensordict.tensordict import TensorDict, TensorDictBase
+from torchrl.data import UnboundedContinuousTensorSpec
+from torchrl.data import Composite as CompositeSpec
+# todo
+from isaacsim.util.debug_draw import _debug_draw
 
 from omni_drones.envs.isaac_env import AgentSpec, IsaacEnv
 from omni_drones.robots.drone import MultirotorBase
 from omni_drones.views import RigidPrimView
-
-from tensordict.tensordict import TensorDict, TensorDictBase
-from torchrl.data import UnboundedContinuousTensorSpec, CompositeSpec, DiscreteTensorSpec
-from omni.isaac.debug_draw import _debug_draw
-
+import omni_drones.utils.kit as kit_utils
+from omni_drones.utils.torch import euler_to_quaternion, quat_rotate
 from ..utils import lemniscate, scale_time
 from .utils import attach_payload
+
 
 class PayloadTrack(IsaacEnv):
     r"""
@@ -88,6 +88,7 @@ class PayloadTrack(IsaacEnv):
     | `reward_distance_scale` | float | 1.6           | Scales the reward based on the distance between the payload and its target.                                                                                                                                                             |
     | `time_encoding`         | bool  | True          | Indicates whether to include time encoding in the observation space. If set to True, a 4-dimensional vector encoding the current progress of the episode is included in the observation. If set to False, this feature is not included. |
     """
+
     def __init__(self, cfg, headless):
         self.reset_thres = cfg.task.reset_thres
         self.reward_effort_weight = cfg.task.reward_effort_weight
@@ -172,7 +173,7 @@ class PayloadTrack(IsaacEnv):
 
     def _set_specs(self):
         drone_state_dim = self.drone.state_spec.shape[-1]
-        obs_dim = drone_state_dim + 3 * (self.future_traj_steps-1) + 9
+        obs_dim = drone_state_dim + 3 * (self.future_traj_steps - 1) + 9
         if self.time_encoding:
             self.time_encoding_dim = 4
             obs_dim += self.time_encoding_dim
@@ -207,7 +208,6 @@ class PayloadTrack(IsaacEnv):
         }).expand(self.num_envs).to(self.device)
         self.observation_spec["stats"] = stats_spec
         self.stats = stats_spec.zero()
-
 
     def _reset_idx(self, env_ids: torch.Tensor):
         self.drone._reset_idx(env_ids)
@@ -265,14 +265,14 @@ class PayloadTrack(IsaacEnv):
             self.drone_payload_rpos.flatten(1).unsqueeze(1),
             self.target_payload_rpos.flatten(1).unsqueeze(1),
             self.drone_state[..., 3:],
-            self.payload_vels.unsqueeze(1), # 6
+            self.payload_vels.unsqueeze(1),  # 6
         ]
         if self.time_encoding:
             t = (self.progress_buf / self.max_episode_length).unsqueeze(-1)
             obs.append(t.expand(-1, self.time_encoding_dim).unsqueeze(1))
         obs = torch.cat(obs, dim=-1)
 
-        self.stats["action_smoothness"].lerp_(-self.drone.throttle_difference, (1-self.alpha))
+        self.stats["action_smoothness"].lerp_(-self.drone.throttle_difference, (1 - self.alpha))
 
         return TensorDict(
             {
@@ -303,10 +303,10 @@ class PayloadTrack(IsaacEnv):
         reward_spin = 0.5 / (1.0 + torch.square(spin))
 
         reward = (
-            reward_pos
-            + reward_pos * (reward_up + reward_spin)
-            + reward_effort
-            + reward_action_smoothness
+                reward_pos
+                + reward_pos * (reward_up + reward_spin)
+                + reward_effort
+                + reward_action_smoothness
         )
 
         misbehave = (self.drone.pos[..., 2] < 0.1) | (pos_rror > self.reset_thres)
@@ -316,7 +316,7 @@ class PayloadTrack(IsaacEnv):
         truncated = (self.progress_buf >= self.max_episode_length).unsqueeze(-1)
 
         self.stats["tracking_error"].add_(pos_rror)
-        self.stats["action_smoothness"].lerp_(-self.drone.throttle_difference, (1-self.alpha))
+        self.stats["action_smoothness"].lerp_(-self.drone.throttle_difference, (1 - self.alpha))
         self.stats["return"].add_(reward)
         self.stats["episode_len"][:] = self.progress_buf.unsqueeze(1)
 
@@ -332,7 +332,7 @@ class PayloadTrack(IsaacEnv):
             self.batch_size,
         )
 
-    def _compute_traj(self, steps: int, env_ids=None, step_size: float=1.):
+    def _compute_traj(self, steps: int, env_ids=None, step_size: float = 1.):
         if env_ids is None:
             env_ids = ...
         t = self.progress_buf[env_ids].unsqueeze(1) + step_size * torch.arange(steps, device=self.device)
@@ -343,5 +343,3 @@ class PayloadTrack(IsaacEnv):
         target_pos = vmap(quat_rotate)(traj_rot, target_pos) * self.traj_scale[env_ids].unsqueeze(1)
 
         return self.origin + target_pos
-
-

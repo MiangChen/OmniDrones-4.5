@@ -5,14 +5,24 @@ from omegaconf import OmegaConf
 from omni_drones import init_simulation_app
 
 
+
 @hydra.main(version_base=None, config_path=".", config_name="demo")
 def main(cfg):
     OmegaConf.resolve(cfg)
     simulation_app = init_simulation_app(cfg)
+
+    from assets_scripts_linux import PATH_ISAACSIM_ASSETS
+    import carb
+    carb.settings.get_settings().set(
+        "/presitent/isaac/asset_root/default",
+        f"{PATH_ISAACSIM_ASSETS}/Assets/Isaac/4.5",
+    )
     print(OmegaConf.to_yaml(cfg))
 
     import omni_drones.utils.scene as scene_utils
-    from omni.isaac.core.simulation_context import SimulationContext
+    # from omni.isaac.core.simulation_context import SimulationContext
+    # from isaacsim.core.simulation_context import SimulationContext
+    from isaacsim.core.api import SimulationContext
     from omni_drones.robots.drone import MultirotorBase
     from omni_drones.utils.torch import euler_to_quaternion
 
@@ -24,7 +34,7 @@ def main(cfg):
         backend="torch",
         device=cfg.sim.device,
     )
-    n = 4
+    n = 1
 
     drone_model_cfg = cfg.drone_model
     drone, controller = MultirotorBase.make(
@@ -81,15 +91,19 @@ def main(cfg):
         if not sim.is_playing():
             sim.render()
             continue
-        ref_pos, ref_yaw = compute_ref((i % cfg.steps)*cfg.sim.dt)
+        ref_pos, ref_yaw = compute_ref((10 % cfg.steps)*cfg.sim.dt)
         # compute rotor commands and apply
         action = controller.compute(drone_state, target_pos=ref_pos, target_yaw=ref_yaw)
-        drone.apply_action(action)
+        print("action", action, "target pos", ref_pos, "target yaw", ref_yaw)
+        # v = 1
+        # drone.apply_action(torch.tensor([[v, v,  v, v]]).to(sim.device))
+        drone.apply_action(torch.tensor(action).to(sim.device))
         sim.step(render=True)
 
         if i % cfg.steps == 0:
             reset()
         drone_state = drone.get_state()[..., :13].squeeze(0)
+        print("drone state", drone_state)
 
     simulation_app.close()
 

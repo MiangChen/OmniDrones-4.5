@@ -22,13 +22,19 @@
 
 
 from typing import Sequence, Union, Optional
-
-import omni.isaac.core.utils.prims as prim_utils
-import omni.isaac.core.utils.stage as stage_utils
+# todo
+# import omni.isaac.core.utils.prims as prim_utils
+# import omni.isaac.core.utils.stage as stage_utils
+# import omni.physx.scripts.utils as script_utils
+import isaacsim.core.utils.prims as prim_utils
+import isaacsim.core.utils.stage as stage_utils
 import omni.physx.scripts.utils as script_utils
+
+
 import torch
 
-from pxr import Gf, PhysxSchema, Usd, UsdGeom, UsdPhysics
+from pxr import Gf, PhysxSchema, Usd, UsdGeom, UsdPhysics  #  PhysxSchema 要在isaacsimapp启动后才有
+# from pxr import Gf, Usd, UsdGeom, UsdPhysics
 from scipy.spatial.transform import Rotation
 
 import omni_drones.utils.kit as kit_utils
@@ -100,7 +106,7 @@ def create_rope(
         massAPI.CreateMassAttr().Set(0.01)
 
         UsdPhysics.CollisionAPI.Apply(capsuleGeom.GetPrim())
-        physxCollisionAPI = PhysxSchema.PhysxCollisionAPI.Apply(capsuleGeom.GetPrim())
+        # physxCollisionAPI = PhysxSchema.PhysxCollisionAPI.Apply(capsuleGeom.GetPrim())
         # physxCollisionAPI.CreateRestOffsetAttr().Set(0.0)
         # physxCollisionAPI.CreateContactOffsetAttr().Set(0.02)
         capsuleGeom.GetPrim().GetAttribute("physics:collisionEnabled")

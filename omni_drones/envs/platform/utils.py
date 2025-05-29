@@ -21,33 +21,31 @@
 # SOFTWARE.
 
 
+import torch
 from typing import Sequence, Union, Optional
 from dataclasses import dataclass
-
-import omni.isaac.core.utils.prims as prim_utils
-import omni.isaac.core.utils.stage as stage_utils
-import omni_drones.utils.kit as kit_utils
-import omni.physx.scripts.utils as script_utils
-from omni.kit.commands import execute
-import torch
-
-from pxr import Gf, Usd, UsdGeom, UsdPhysics, PhysxSchema
 from scipy.spatial.transform import Rotation
 
+import isaacsim.core.utils.prims as prim_utils
+import isaacsim.core.utils.stage as stage_utils
+import omni.physx.scripts.utils as script_utils
+from omni.kit.commands import execute
+from pxr import Gf, Usd, UsdGeom, UsdPhysics, PhysxSchema
+
+import omni_drones.utils.kit as kit_utils
 from omni_drones.robots import RobotBase, RobotCfg
-from omni_drones.robots.drone import MultirotorBase
-from omni_drones.views import RigidPrimView
 from omni_drones.utils.torch import quat_axis
 
+
 def create_frame(
-    prim_path: str,
-    arm_angles: Sequence[float],
-    arm_lengths: Sequence[float],
-    to_prim_paths: Optional[Sequence[str]]=None,
-    joint_damping: float = 0.002,
-    color: Sequence[float] = (0.5, 0.5, 0.2),
-    enable_collision: bool = False,
-    exclude_from_articulation: bool = False,
+        prim_path: str,
+        arm_angles: Sequence[float],
+        arm_lengths: Sequence[float],
+        to_prim_paths: Optional[Sequence[str]] = None,
+        joint_damping: float = 0.002,
+        color: Sequence[float] = (0.5, 0.5, 0.2),
+        enable_collision: bool = False,
+        exclude_from_articulation: bool = False,
 ):
     if isinstance(arm_angles, torch.Tensor):
         arm_angles = arm_angles.tolist()
@@ -65,7 +63,7 @@ def create_frame(
         raise ValueError
 
     for i, (arm_angle, arm_length, to_prim_path) in enumerate(
-        zip(arm_angles, arm_lengths, to_prim_paths)
+            zip(arm_angles, arm_lengths, to_prim_paths)
     ):
         link_path = f"{prim_path}/arm_{i}"
         capsuleGeom = UsdGeom.Capsule.Define(stage, link_path)
@@ -123,14 +121,15 @@ class PlatformCfg(RobotCfg):
     # frame_mass: float = 0.2
     joint_damping: float = 0.001
 
+
 class OveractuatedPlatform(RobotBase):
 
     def __init__(
-        self,
-        name: str="Platform",
-        drone: Union[str, RobotBase]="Hummingbird",
-        cfg: PlatformCfg=None,
-        is_articulation: bool=True
+            self,
+            name: str = "Platform",
+            drone: Union[str, RobotBase] = "Hummingbird",
+            cfg: PlatformCfg = None,
+            is_articulation: bool = True
     ):
         super().__init__(name, cfg, is_articulation)
         drone.is_articulation = False
@@ -138,16 +137,16 @@ class OveractuatedPlatform(RobotBase):
 
         self.joint_damping = cfg.joint_damping
         self.rotate_drones = cfg.rotate_drones
-        self.arm_angles = torch.linspace(0, torch.pi*2, cfg.num_drones+1)[:-1]
+        self.arm_angles = torch.linspace(0, torch.pi * 2, cfg.num_drones + 1)[:-1]
         self.arm_lengths = torch.ones(cfg.num_drones) * cfg.arm_length
 
         self.alpha = 0.9
 
     def spawn(
-        self,
-        translations=...,
-        prim_paths: Sequence[str] = None,
-        enable_collision: bool = False,
+            self,
+            translations=...,
+            prim_paths: Sequence[str] = None,
+            enable_collision: bool = False,
     ):
         translations = torch.atleast_2d(
             torch.as_tensor(translations, device=self.device)
@@ -264,14 +263,14 @@ class OveractuatedPlatform(RobotBase):
 
     def get_linear_smoothness(self):
         return - (
-            torch.norm(self.acc[..., :3], dim=-1)
-            + torch.norm(self.jerk[..., :3], dim=-1)
+                torch.norm(self.acc[..., :3], dim=-1)
+                + torch.norm(self.jerk[..., :3], dim=-1)
         )
 
     def get_angular_smoothness(self):
         return - (
-            torch.sum(self.acc[..., 3:].abs(), dim=-1)
-            + torch.sum(self.jerk[..., 3:].abs(), dim=-1)
+                torch.sum(self.acc[..., 3:].abs(), dim=-1)
+                + torch.sum(self.jerk[..., 3:].abs(), dim=-1)
         )
 
     def _reset_idx(self, env_ids: torch.Tensor):
@@ -285,10 +284,10 @@ class OveractuatedPlatform(RobotBase):
         return env_ids
 
     def _create_frame(
-        self,
-        prim_path: str,
-        to_prims: Sequence[str]=None,
-        enable_collision: bool=False
+            self,
+            prim_path: str,
+            to_prims: Sequence[str] = None,
+            enable_collision: bool = False
     ):
         frame_prim = create_frame(
             prim_path,
@@ -300,4 +299,3 @@ class OveractuatedPlatform(RobotBase):
             exclude_from_articulation=False
         )
         return frame_prim
-

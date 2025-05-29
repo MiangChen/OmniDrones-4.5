@@ -20,21 +20,23 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+# todo
+import torch
+from torchrl.data import UnboundedContinuousTensorSpec, DiscreteTensorSpec
+from torchrl.data import Composite as CompositeSpec
+import torch.distributions as D
+from torch.func import vmap
+from tensordict.tensordict import TensorDict, TensorDictBase
+
+# from omni.isaac.debug_draw import _debug_draw
+from isaacsim.util.debug_draw import _debug_draw
 
 import omni_drones.utils.kit as kit_utils
 from omni_drones.utils.torch import euler_to_quaternion, quat_rotate
-import omni.isaac.core.utils.prims as prim_utils
-import torch
-import torch.distributions as D
-from torch.func import vmap
-
 from omni_drones.envs.isaac_env import AgentSpec, IsaacEnv
 from omni_drones.robots.drone import MultirotorBase
-from tensordict.tensordict import TensorDict, TensorDictBase
-from torchrl.data import UnboundedContinuousTensorSpec, CompositeSpec, DiscreteTensorSpec
-from omni.isaac.debug_draw import _debug_draw
-
 from ..utils import lemniscate, scale_time
+
 
 class Track(IsaacEnv):
     r"""
@@ -84,6 +86,7 @@ class Track(IsaacEnv):
     | `reward_distance_scale` | float | 1.2           | Scales the reward based on the distance between the drone and its target.                                                                                                                                                               |
     | `time_encoding`         | bool  | True          | Indicates whether to include time encoding in the observation space. If set to True, a 4-dimensional vector encoding the current progress of the episode is included in the observation. If set to False, this feature is not included. |
     """
+
     def __init__(self, cfg, headless):
         self.reset_thres = cfg.task.reset_thres
         self.reward_effort_weight = cfg.task.reward_effort_weight
@@ -152,6 +155,7 @@ class Track(IsaacEnv):
         self.draw = _debug_draw.acquire_debug_draw_interface()
 
     def _design_scene(self):
+        # todo: drone_model_cfg is str
         drone_model_cfg = self.cfg.task.drone_model
         self.drone, self.controller = MultirotorBase.make(
             drone_model_cfg.name, drone_model_cfg.controller
@@ -168,7 +172,7 @@ class Track(IsaacEnv):
 
     def _set_specs(self):
         drone_state_dim = self.drone.state_spec.shape[-1]
-        obs_dim = drone_state_dim + 3 * (self.future_traj_steps-1)
+        obs_dim = drone_state_dim + 3 * (self.future_traj_steps - 1)
         if self.time_encoding:
             self.time_encoding_dim = 4
             obs_dim += self.time_encoding_dim
@@ -225,7 +229,7 @@ class Track(IsaacEnv):
 
         self.stats[env_ids] = 0.
 
-        if self._should_render(0) and (env_ids == self.central_env_idx).any() :
+        if self._should_render(0) and (env_ids == self.central_env_idx).any():
             # visualize the trajectory
             self.draw.clear_lines()
 
@@ -238,7 +242,8 @@ class Track(IsaacEnv):
             self.draw.draw_lines(point_list_0, point_list_1, colors, sizes)
 
         if self.wind:
-            self.wind_i[env_ids] = torch.rand(*env_ids.shape, 1, device=self.device) * (self.wind_intensity_high-self.wind_intensity_low) + self.wind_intensity_low
+            self.wind_i[env_ids] = torch.rand(*env_ids.shape, 1, device=self.device) * (
+                        self.wind_intensity_high - self.wind_intensity_low) + self.wind_intensity_low
             self.wind_w[env_ids] = torch.randn(*env_ids.shape, 3, 8, device=self.device)
 
     def _pre_sim_step(self, tensordict: TensorDictBase):
@@ -270,7 +275,7 @@ class Track(IsaacEnv):
 
         obs = torch.cat(obs, dim=-1)
 
-        self.stats["action_smoothness"].lerp_(-self.drone.throttle_difference, (1-self.alpha))
+        self.stats["action_smoothness"].lerp_(-self.drone.throttle_difference, (1 - self.alpha))
 
         return TensorDict(
             {
@@ -286,7 +291,7 @@ class Track(IsaacEnv):
         # pos reward
         distance = torch.norm(self.rpos[:, [0]], dim=-1)
         self.stats["tracking_error"].add_(-distance)
-        self.stats["tracking_error_ema"].lerp_(distance, (1-self.alpha))
+        self.stats["tracking_error_ema"].lerp_(distance, (1 - self.alpha))
 
         reward_pose = torch.exp(-self.reward_distance_scale * distance)
 
@@ -303,15 +308,15 @@ class Track(IsaacEnv):
         reward_spin = 0.5 / (1.0 + torch.square(spin))
 
         reward = (
-            reward_pose
-            + reward_pose * (reward_up + reward_spin)
-            + reward_effort
-            + reward_action_smoothness
+                reward_pose
+                + reward_pose * (reward_up + reward_spin)
+                + reward_effort
+                + reward_action_smoothness
         )
 
         misbehave = (
-            (self.drone.pos[..., 2] < 0.1)
-            | (distance > self.reset_thres)
+                (self.drone.pos[..., 2] < 0.1)
+                | (distance > self.reset_thres)
         )
         hasnan = torch.isnan(self.drone_state).any(-1)
 
@@ -337,7 +342,7 @@ class Track(IsaacEnv):
             self.batch_size,
         )
 
-    def _compute_traj(self, steps: int, env_ids=None, step_size: float=1.):
+    def _compute_traj(self, steps: int, env_ids=None, step_size: float = 1.):
         if env_ids is None:
             env_ids = ...
         t = self.progress_buf[env_ids].unsqueeze(1) + step_size * torch.arange(steps, device=self.device)

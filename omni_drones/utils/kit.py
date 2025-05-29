@@ -8,12 +8,21 @@ import math
 from typing import Optional, Sequence
 
 import carb
-import omni.isaac.core.utils.nucleus as nucleus_utils
-import omni.isaac.core.utils.prims as prim_utils
+# todo
+# import omni.isaac.core.utils.nucleus as nucleus_utils
+# import omni.isaac.core.utils.prims as prim_utils
+# import omni.kit
+# from omni.isaac.core.materials import PhysicsMaterial
+# from omni.isaac.core.prims import GeometryPrim
+# from omni.isaac.version import get_version
+
+# import isaacsim.core.utils.nucleus as nucleus_utils
+import isaacsim.storage.native as nucleus_utils
+import isaacsim.core.utils.prims as prim_utils
 import omni.kit
-from omni.isaac.core.materials import PhysicsMaterial
-from omni.isaac.core.prims import GeometryPrim
-from omni.isaac.version import get_version
+from isaacsim.core.api.materials import PhysicsMaterial
+from isaacsim.core.prims import GeometryPrim
+from isaacsim.core.version import get_version
 from pxr import Gf, PhysxSchema, UsdPhysics
 
 
@@ -54,8 +63,10 @@ def create_ground_plane(
         usd_path = kwargs["usd_path"]
     else:
         # get path to the nucleus server
-        # assets_root_path = nucleus_utils.get_assets_root_path()
-        assets_root_path = "http://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.1"
+        assets_root_path = nucleus_utils.get_assets_root_path()
+        # assets_root_path = "http://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/4.1"
+        from assets_scripts_linux import NAME_USR, PATH_PROJECT, PATH_ISAACSIM_ASSETS
+        assets_root_path = f"{PATH_ISAACSIM_ASSETS}/Assets/Isaac/4.5"
         print("Assets root path: ", assets_root_path)
         if assets_root_path is None:
             carb.log_error("Unable to access the Isaac Sim assets folder on Nucleus server.")
@@ -86,8 +97,11 @@ def create_ground_plane(
             prim_path, predicate=lambda x: prim_utils.get_prim_type_name(x) == "Plane"
         )
     )
-    geom_prim = GeometryPrim(collision_prim_path, disable_stablization=False, collision=True)
-    geom_prim.apply_physics_material(material)
+    # todo
+    import torch
+    collisions_param = torch.full((1,), True, dtype=torch.bool)
+    geom_prim = GeometryPrim(collision_prim_path, disable_stablization=False, collisions=collisions_param)
+    geom_prim.apply_physics_materials(material)
     # Change the color of the plane
     # Warning: This is specific to the default grid plane asset.
     if color is not None:

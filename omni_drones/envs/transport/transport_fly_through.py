@@ -25,17 +25,14 @@ import torch
 import torch.distributions as D
 from torch.func import vmap
 from tensordict.tensordict import TensorDict, TensorDictBase
-from torchrl.data import (
-    CompositeSpec,
-    UnboundedContinuousTensorSpec,
-    DiscreteTensorSpec
-)
+from torchrl.data import UnboundedContinuousTensorSpec, DiscreteTensorSpec
+from torchrl.data import Composite as CompositeSpec
 
-import omni.isaac.core.utils.prims as prim_utils
-import omni.physx.scripts.utils as script_utils
-from omni.isaac.core.objects import DynamicCuboid
-
-import omni_drones.utils.kit as kit_utils
+# todo
+# import omni.isaac.core.utils.prims as prim_utils
+# import omni.physx.scripts.utils as script_utils
+# from omni.isaac.core.objects import DynamicCuboid
+# import omni_drones.utils.kit as kit_utils
 import omni_drones.utils.scene as scene_utils
 from omni_drones.utils.torch import euler_to_quaternion
 
@@ -46,6 +43,7 @@ from omni_drones.robots.drone import MultirotorBase
 
 from .utils import TransportationGroup, TransportationCfg
 from ..utils import create_obstacle
+
 
 class TransportFlyThrough(IsaacEnv):
     r"""
@@ -79,6 +77,7 @@ class TransportFlyThrough(IsaacEnv):
     - `reset_on_collision` (bool, default=False): Whether to reset the environment when the payload collides with an
       obstacle.
     """
+
     def __init__(self, cfg, headless):
         self.reward_effort_weight = cfg.task.reward_effort_weight
         self.reward_distance_scale = cfg.task.reward_distance_scale
@@ -173,7 +172,7 @@ class TransportFlyThrough(IsaacEnv):
 
         observation_spec = CompositeSpec({
             "obs_self": UnboundedContinuousTensorSpec((1, drone_state_dim)),
-            "obs_others": UnboundedContinuousTensorSpec((self.drone.n-1, 13+1)),
+            "obs_others": UnboundedContinuousTensorSpec((self.drone.n - 1, 13 + 1)),
             "obs_payload": UnboundedContinuousTensorSpec((1, payload_state_dim)),
             "obs_obstacles": UnboundedContinuousTensorSpec((2, 2)),
         }).to(self.device)
@@ -246,7 +245,6 @@ class TransportFlyThrough(IsaacEnv):
         self.stats.exclude("success")[env_ids] = 0.
         self.stats["success"][env_ids] = False
 
-
     def _pre_sim_step(self, tensordict: TensorDictBase):
         actions = tensordict[("agents", "action")]
         self.effort = self.drone.apply_action(actions)
@@ -273,7 +271,7 @@ class TransportFlyThrough(IsaacEnv):
             self.payload_rot,  # 4
             payload_vels,  # 6
             self.payload_heading,  # 3
-            self.payload_up, # 3
+            self.payload_up,  # 3
         ]
         if self.time_encoding:
             t = (self.progress_buf / self.max_episode_length).unsqueeze(-1)
@@ -286,22 +284,22 @@ class TransportFlyThrough(IsaacEnv):
         identity = torch.eye(self.drone.n, device=self.device).expand(self.num_envs, -1, -1)
         obs["obs_self"] = torch.cat(
             [-payload_drone_rpos, self.drone_states[..., 3:], identity], dim=-1
-        ).unsqueeze(2) # [..., 1, state_dim]
+        ).unsqueeze(2)  # [..., 1, state_dim]
         obs["obs_others"] = torch.cat(
             [self.drone_rpos, self.drone_pdist, vmap(others)(self.drone_states[..., 3:13])], dim=-1
-        ) # [..., n-1, state_dim + 1]
-        obs["obs_payload"] = payload_state.expand(-1, self.drone.n, -1).unsqueeze(2) # [..., 1, 22]
+        )  # [..., n-1, state_dim + 1]
+        obs["obs_payload"] = payload_state.expand(-1, self.drone.n, -1).unsqueeze(2)  # [..., 1, 22]
         obs["obs_obstacles"] = obstacle_payload_rpos.unsqueeze(1).expand(-1, self.drone.n, 2, 2)
 
         state = TensorDict({}, self.num_envs)
-        state["state_payload"] = payload_state # [..., 1, 22]
-        state["state_drones"] = obs["obs_self"].squeeze(2) # [..., n, state_dim]
-        state["obstacles"] = obstacle_payload_rpos # [..., 2, 2]
+        state["state_payload"] = payload_state  # [..., 1, 22]
+        state["state_drones"] = obs["obs_self"].squeeze(2)  # [..., n, state_dim]
+        state["obstacles"] = obstacle_payload_rpos  # [..., 2, 2]
 
         self.payload_pos_error = torch.norm(self.target_payload_rpos, dim=-1, keepdim=True)
 
-        self.stats["payload_pos_error"].lerp_(self.payload_pos_error, (1-self.alpha))
-        self.stats["action_smoothness"].lerp_(-self.drone.throttle_difference, (1-self.alpha))
+        self.stats["payload_pos_error"].lerp_(self.payload_pos_error, (1 - self.alpha))
+        self.stats["action_smoothness"].lerp_(-self.drone.throttle_difference, (1 - self.alpha))
 
         return TensorDict(
             {
@@ -316,8 +314,8 @@ class TransportFlyThrough(IsaacEnv):
 
     def _compute_reward_and_done(self):
         joint_positions = (
-            self.group.get_joint_positions()[..., :16]
-            / self.group.joint_limits[..., :16, 0].abs()
+                self.group.get_joint_positions()[..., :16]
+                / self.group.joint_limits[..., :16, 0].abs()
         )
 
         separation = self.drone_pdist.min(dim=-2).values.min(dim=-2).values
@@ -343,19 +341,19 @@ class TransportFlyThrough(IsaacEnv):
         self.stats["collision"].add_(collision_reward)
 
         reward[:] = (
-            reward_separation * (
+                reward_separation * (
                 reward_pose
                 + reward_pose * reward_up
                 + reward_joint_limit
                 + reward_action_smoothness.mean(1, True)
                 + reward_effort
-            )  * (1. - self.collision_penalty * collision_reward)
+        ) * (1. - self.collision_penalty * collision_reward)
         ).unsqueeze(1)
 
         misbehave = (
-            (self.drone.pos[..., 2] < 0.2).any(-1, keepdim=True)
-            | (self.drone.pos[..., 2] > 3.6).any(-1, keepdim=True)
-            | (self.payload_pos[:, 2] < 0.3).unsqueeze(1).any(-1, keepdim=True)
+                (self.drone.pos[..., 2] < 0.2).any(-1, keepdim=True)
+                | (self.drone.pos[..., 2] > 3.6).any(-1, keepdim=True)
+                | (self.payload_pos[:, 2] < 0.3).unsqueeze(1).any(-1, keepdim=True)
         )
         hasnan = torch.isnan(self.drone_states).any(-1)
 

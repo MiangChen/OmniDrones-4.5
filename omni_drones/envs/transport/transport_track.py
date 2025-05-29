@@ -24,20 +24,18 @@
 import torch
 import torch.distributions as D
 from torch.func import vmap
-
-import omni_drones.utils.kit as kit_utils
-import omni_drones.utils.scene as scene_utils
-from omni.isaac.debug_draw import _debug_draw
-
 from tensordict.tensordict import TensorDict, TensorDictBase
-from torchrl.data import CompositeSpec, UnboundedContinuousTensorSpec, DiscreteTensorSpec
+from torchrl.data import UnboundedContinuousTensorSpec
+from torchrl.data import Composite as CompositeSpec
+
+from isaacsim.util.debug_draw import _debug_draw
 
 from omni_drones.envs.isaac_env import AgentSpec, IsaacEnv
-from omni_drones.views import RigidPrimView
+from omni_drones.robots.drone import MultirotorBase
+import omni_drones.utils.scene as scene_utils
 from omni_drones.utils.torch import (
     cpos, off_diag, others, euler_to_quaternion, quat_rotate, quat_axis
 )
-from omni_drones.robots.drone import MultirotorBase
 
 from .utils import TransportationGroup, TransportationCfg
 from ..utils import lemniscate, scale_time
@@ -87,6 +85,7 @@ class TransportTrack(IsaacEnv):
     | `future_traj_steps` | int                | 4             | The number of future time steps to observe the reference positions along the trajectory.                                          |
     | `reset_thres`       | float              | 0.7           | A threshold value that triggers termination when the payload deviates too far from the reference position.                        |
     """
+
     def __init__(self, cfg, headless):
         self.reset_thres = cfg.task.reset_thres
         self.reward_effort_weight = cfg.task.reward_effort_weight
@@ -163,14 +162,14 @@ class TransportTrack(IsaacEnv):
 
     def _set_specs(self):
         drone_state_dim = self.drone.state_spec.shape[-1] + self.drone.n
-        payload_state_dim = 19 + (self.future_traj_steps-1) * 3
+        payload_state_dim = 19 + (self.future_traj_steps - 1) * 3
         if self.time_encoding:
             self.time_encoding_dim = 4
             payload_state_dim += self.time_encoding_dim
 
         observation_spec = CompositeSpec({
             "obs_self": UnboundedContinuousTensorSpec((1, drone_state_dim)),
-            "obs_others": UnboundedContinuousTensorSpec((self.drone.n-1, 13+1)),
+            "obs_others": UnboundedContinuousTensorSpec((self.drone.n - 1, 13 + 1)),
             "obs_payload": UnboundedContinuousTensorSpec((1, payload_state_dim)),
         }).to(self.device)
 
@@ -237,7 +236,7 @@ class TransportTrack(IsaacEnv):
 
         self.stats[env_ids] = 0.
 
-        if self._should_render(0) and (env_ids == self.central_env_idx).any() :
+        if self._should_render(0) and (env_ids == self.central_env_idx).any():
             # visualize the trajectory
             self.draw.clear_lines()
 
@@ -276,7 +275,7 @@ class TransportTrack(IsaacEnv):
             self.payload_rot,  # 4
             payload_vels,  # 6
             self.payload_heading,  # 3
-            self.payload_up, # 3
+            self.payload_up,  # 3
         ]
         if self.time_encoding:
             t = (self.progress_buf / self.max_episode_length).unsqueeze(-1)
@@ -287,20 +286,20 @@ class TransportTrack(IsaacEnv):
         identity = torch.eye(self.drone.n, device=self.device).expand(self.num_envs, -1, -1)
         obs["obs_self"] = torch.cat(
             [-payload_drone_rpos, self.drone_states[..., 3:], identity], dim=-1
-        ).unsqueeze(2) # [..., 1, state_dim]
+        ).unsqueeze(2)  # [..., 1, state_dim]
         obs["obs_others"] = torch.cat(
             [self.drone_rpos, self.drone_pdist, vmap(others)(self.drone_states[..., 3:13])], dim=-1
-        ) # [..., n-1, state_dim + 1]
-        obs["obs_payload"] = payload_state.expand(-1, self.drone.n, -1).unsqueeze(2) # [..., 1, 22]
+        )  # [..., n-1, state_dim + 1]
+        obs["obs_payload"] = payload_state.expand(-1, self.drone.n, -1).unsqueeze(2)  # [..., 1, 22]
 
         state = TensorDict({}, self.num_envs)
-        state["state_payload"] = payload_state # [..., 1, 22]
-        state["state_drones"] = obs["obs_self"].squeeze(2) # [..., n, state_dim]
+        state["state_payload"] = payload_state  # [..., 1, 22]
+        state["state_drones"] = obs["obs_self"].squeeze(2)  # [..., n, state_dim]
 
-        self.stats["pos_error"].lerp_(self.target_distance, (1-self.alpha))
+        self.stats["pos_error"].lerp_(self.target_distance, (1 - self.alpha))
         # self.stats["heading_alignment"].lerp_(heading_alignment, (1-self.alpha))
-        self.stats["uprightness"].lerp_(self.payload_up[:, 2].unsqueeze(-1), (1-self.alpha))
-        self.stats["action_smoothness"].lerp_(-self.drone.throttle_difference, (1-self.alpha))
+        self.stats["uprightness"].lerp_(self.payload_up[:, 2].unsqueeze(-1), (1 - self.alpha))
+        self.stats["action_smoothness"].lerp_(-self.drone.throttle_difference, (1 - self.alpha))
 
         return TensorDict(
             {
@@ -316,8 +315,8 @@ class TransportTrack(IsaacEnv):
     def _compute_reward_and_done(self):
         vels = self.payload.get_velocities()
         joint_positions = (
-            self.group.get_joint_positions()[..., :16]
-            / self.group.joint_limits[..., :16, 0].abs()
+                self.group.get_joint_positions()[..., :16]
+                / self.group.joint_limits[..., :16, 0].abs()
         )
 
         separation = self.drone_pdist.min(dim=-2).values.min(dim=-2).values
@@ -342,18 +341,18 @@ class TransportTrack(IsaacEnv):
         reward_action_smoothness = self.reward_action_smoothness_weight * -self.drone.throttle_difference
 
         reward[:] = (
-            reward_separation * (
+                reward_separation * (
                 reward_pos
                 + reward_pos * (reward_up + reward_spin + reward_swing)
                 + reward_joint_limit
                 + reward_action_smoothness.mean(1, True)
                 + reward_effort
-            )
+        )
         ).unsqueeze(-1)
 
         misbehave = (
-            (self.drone_states[..., 2] < 0.2).any(-1, keepdim=True)
-            | (self.target_distance > self.reset_thres)
+                (self.drone_states[..., 2] < 0.2).any(-1, keepdim=True)
+                | (self.target_distance > self.reset_thres)
         )
         hasnan = torch.isnan(self.drone_states).any(-1)
 
@@ -375,7 +374,7 @@ class TransportTrack(IsaacEnv):
             self.batch_size,
         )
 
-    def _compute_traj(self, steps: int, env_ids=None, step_size: float=1.):
+    def _compute_traj(self, steps: int, env_ids=None, step_size: float = 1.):
         if env_ids is None:
             env_ids = ...
         t = self.progress_buf[env_ids].unsqueeze(1) + step_size * torch.arange(steps, device=self.device)

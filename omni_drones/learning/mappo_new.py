@@ -40,7 +40,8 @@ from tensordict.nn import (
     TensorDictParams
 )
 from torchrl.modules import ProbabilisticActor
-from torchrl.data import TensorSpec, CompositeSpec
+from torchrl.data import TensorSpec
+from torchrl.data import  Composite as CompositeSpec
 from torchrl.envs.transforms import CatTensors
 from einops.layers.torch import Rearrange, Reduce
 

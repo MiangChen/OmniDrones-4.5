@@ -24,14 +24,17 @@
 from typing import Sequence
 import torch
 from dataclasses import dataclass, field, MISSING, fields, asdict
+from collections import defaultdict
 
-from torchrl.data import BoundedTensorSpec, UnboundedContinuousTensorSpec, CompositeSpec
-from tensordict.nn import make_functional
+from torchrl.data import BoundedTensorSpec, UnboundedContinuousTensorSpec
+from torchrl.data import  Composite as CompositeSpec
+# from tensordict.nn import make_functional
+from tensordict import TensorDict
 
-import omni.isaac.core.utils.prims as prim_utils
+import isaacsim.core.utils.prims as prim_utils
 import omni.physx.scripts.utils as script_utils
-from pxr import PhysxSchema, UsdPhysics
 from omni.usd.commands import MovePrimCommand
+from pxr import PhysxSchema, UsdPhysics
 
 from omni_drones.robots import ASSET_PATH, RobotCfg, ArticulationRootPropertiesCfg
 from omni_drones.robots.drone import MultirotorBase
@@ -39,7 +42,6 @@ from omni_drones.actuators.rotor_group import RotorGroup
 from omni_drones.views import RigidPrimView
 from omni_drones.utils.torch import quat_axis
 
-from collections import defaultdict
 
 @dataclass
 class RotorConfig:
@@ -79,7 +81,6 @@ class DragonCfg(RobotCfg):
 
 
 class Dragon(MultirotorBase):
-
     cfg_cls = DragonCfg
 
     def __init__(self, name: str = "dragon", cfg: DragonCfg = DragonCfg(), is_articulation: bool = True) -> None:
@@ -87,15 +88,15 @@ class Dragon(MultirotorBase):
         self.num_rotors = self.cfg.rotor_cfg.num_rotors
         self.num_links = self.cfg.num_links
 
-        self.action_split = [self.cfg.rotor_cfg.num_rotors, self.num_links * 2, (self.num_links-1) * 2]
+        self.action_split = [self.cfg.rotor_cfg.num_rotors, self.num_links * 2, (self.num_links - 1) * 2]
         action_dim = sum(self.action_split)
         self._action_spec = BoundedTensorSpec(-1, 1, action_dim, device=self.device)
         observation_dim = (
-            self.num_links * (
+                self.num_links * (
                 13 + 3 + 3
-                + (2 + 2) # gimbal module
-            )
-            + (self.num_links-1) * 2 # link joint pos
+                + (2 + 2)  # gimbal module
+        )
+                + (self.num_links - 1) * 2  # link joint pos
         )
         self.state_spec = UnboundedContinuousTensorSpec(observation_dim, device=self.device)
         self.intrinsics_spec = CompositeSpec({
@@ -138,7 +139,11 @@ class Dragon(MultirotorBase):
         self.gravity = self.body_masses.sum(-1, keepdim=True) * 9.81
 
         self.rotors = RotorGroup(asdict(self.cfg.rotor_cfg), self.dt).to(self.device)
-        rotor_params = make_functional(self.rotors)
+        # todo
+        # rotor_params = make_functional(self.rotors)
+        rotor_params_dict = dict(self.rotors.named_parameters())
+        rotor_params = TensorDict(rotor_params_dict, batch_size=[])
+
         self.rotor_params = rotor_params.expand(self.shape).clone()
         self.throttle = self.rotor_params["throttle"]
         self.throttle_difference = torch.zeros_like(self.throttle)
@@ -170,7 +175,7 @@ class Dragon(MultirotorBase):
             is_global=False
         )
         self.base_link.apply_forces_and_torques_at_pos(
-            torques = self.torques.reshape(-1, 3),
+            torques=self.torques.reshape(-1, 3),
             is_global=True
         )
         gimbal_cmds = gimbal_cmds.clamp(-1, 1) * torch.pi / 2
@@ -185,7 +190,6 @@ class Dragon(MultirotorBase):
         )
         return self.throttle.sum(-1)
 
-
     def get_state(self, check_nan: bool = False):
         self.pos[:], self.rot[:] = self.base_link.get_world_poses()
         if hasattr(self, "_envs_positions"):
@@ -198,8 +202,8 @@ class Dragon(MultirotorBase):
         self.heading = quat_axis(self.rot, axis=0)
         self.up = quat_axis(self.rot, axis=2)
         state = [t.flatten(-2)
-            for t  in [self.pos, self.rot, self.vel, self.heading, self.up]
-        ]
+                 for t in [self.pos, self.rot, self.vel, self.heading, self.up]
+                 ]
         state.append(self.throttle * 2 - 1)
         state.append(gimbal_joint_pos)
         state.append(link_joint_pos)
@@ -221,8 +225,8 @@ class Dragon(MultirotorBase):
             base_links.append(prim_utils.get_prim_at_path(f"{prim_path}/link_{i}/base_link"))
 
         stage = prim_utils.get_current_stage()
-        for i in range(self.num_links-1):
-            joint = script_utils.createJoint(stage, "D6", base_links[i], base_links[i+1])
+        for i in range(self.num_links - 1):
+            joint = script_utils.createJoint(stage, "D6", base_links[i], base_links[i + 1])
             joint.GetAttribute("physics:localPos0").Set((0.15, 0.0, 0.0))
             joint.GetAttribute("physics:localPos1").Set((-0.15, 0.0, 0.0))
             joint.GetAttribute("limit:rotY:physics:low").Set(-90)
@@ -241,4 +245,3 @@ class Dragon(MultirotorBase):
         UsdPhysics.ArticulationRootAPI.Apply(prim)
         PhysxSchema.PhysxArticulationAPI.Apply(prim)
         return prim
-

@@ -20,7 +20,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-
 import torch
 import torch.nn as nn
 
@@ -40,7 +39,8 @@ class RotorGroup(nn.Module):
 
         self.KF = nn.Parameter(max_rot_vels.square() * force_constants)
         self.KM = nn.Parameter(max_rot_vels.square() * moment_constants)
-        self.throttle = nn.Parameter(torch.zeros(self.num_rotors))
+        self.throttle = nn.Parameter(torch.zeros(self.num_rotors))  # 这里有问题, throttle是要能改变的量
+        # self.register_buffer("throttle", torch.zeros(self.num_rotors))
         self.directions = nn.Parameter(torch.as_tensor(rotor_config["directions"]).float())
 
         self.tau_up = nn.Parameter(0.43 * torch.ones(self.num_rotors))
@@ -51,16 +51,17 @@ class RotorGroup(nn.Module):
 
         self.requires_grad_(False)
 
-    def forward(self, cmds: torch.Tensor):
-        target_throttle = self.f_inv(torch.clamp((cmds + 1) / 2, 0, 1))
+    def forward(self, cmds: torch.Tensor, throttles: torch.Tensor):
+        # 需要确定一下, 更改了rotor group中的throttle, 时候会影multirotor中的throttle,
+        target_throttle = self.f_inv(torch.clamp((cmds + 1) / 2, 0, 1))  # 目标油门, 输入是-1~1, 归一到0~1中
 
-        tau = torch.where(target_throttle > self.throttle, self.tau_up, self.tau_down)
+        tau = torch.where(target_throttle > throttles, self.tau_up, self.tau_down)  # 响应时间,
         tau = torch.clamp(tau, 0, 1)
-        self.throttle.add_(tau * (target_throttle - self.throttle))
+        throttles.add_(tau * (target_throttle - throttles))   # 根据响应时间计算油门的增加量, 一阶响应
 
-        noise = torch.randn_like(self.throttle) * self.noise_scale * 0.
-        t = torch.clamp(self.f(self.throttle) + noise, 0., 1.)
-        thrusts = t * self.KF
-        moments = (t * self.KM) * -self.directions
+        noise = torch.randn_like(throttles) * self.noise_scale * 0.  # 模拟噪音
+        t = torch.clamp(self.f(throttles) + noise, 0., 1.)  #
+        thrusts = t * self.KF  # t 是推力比例因子, 最大推力KF
+        moments = (t * self.KM) * -self.directions  # 最大反作用力矩常数
 
-        return thrusts, moments
+        return thrusts, moments, throttles  # 返回推力\力矩\油门

@@ -20,22 +20,25 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-
 from typing import Dict, Any, Sequence, Union
-import omni.isaac.core.utils.prims as prim_utils
-import omni.physx.scripts.utils as script_utils
-# import omni.kit.commands
-import omni.usd.commands
-from pxr import UsdGeom, Usd, UsdPhysics, Gf
 
 import torch
+
+import isaacsim.core.utils.prims as prim_utils
 import omni_drones.utils.kit as kit_utils
+import omni.physx.scripts.utils as script_utils
+from pxr import UsdGeom, Usd, UsdPhysics, Gf
+
+
+# import omni.kit.commands
+# import omni.usd.commands
+
 
 def create_obstacle(
-    prim_path: str,
-    prim_type: str,
-    translation: Sequence[float],
-    attributes: Dict,
+        prim_path: str,
+        prim_type: str,
+        translation: Sequence[float],
+        attributes: Dict,
 ):
     prim = prim_utils.create_prim(
         prim_path=prim_path,
@@ -52,6 +55,7 @@ def create_obstacle(
 
     return prim
 
+
 DEFAULT_JOINT_ATTRIBUTES = {
     "limit:rotX:physics:low": -120,
     "limit:rotX:physics:high": 120,
@@ -61,26 +65,26 @@ DEFAULT_JOINT_ATTRIBUTES = {
     "drive:rotY:physics:damping": 2e-6
 }
 
-def create_bar(
-    prim_path: str,
-    length: float,
-    from_prim: Union[str, Usd.Prim]=None,
-    to_prim: Union[str, Usd.Prim]=None,
-    joint_from_attributes=None,
-    joint_to_attributes=None,
-):
 
+def create_bar(
+        prim_path: str,
+        length: float,
+        from_prim: Union[str, Usd.Prim] = None,
+        to_prim: Union[str, Usd.Prim] = None,
+        joint_from_attributes=None,
+        joint_to_attributes=None,
+):
     bar = prim_utils.create_prim(prim_path)
     seg_0 = prim_utils.create_prim(
         f"{prim_path}/seg_0",
         "Capsule",
-        translation=(0., 0., -length/2),
+        translation=(0., 0., -length / 2),
         attributes={"radius": 0.01, "height": length}
     )
     seg_1 = prim_utils.create_prim(
         f"{prim_path}/seg_1",
         "Capsule",
-        translation=(0., 0., -length/2),
+        translation=(0., 0., -length / 2),
         attributes={"radius": 0.01, "height": length}
     )
     for seg in [seg_0, seg_1]:
@@ -150,8 +154,9 @@ def lemniscate(t, c):
 
     return x
 
-def scale_time(t, a: float=1.0):
-    return t / (1 + 1/(a*torch.abs(t)))
+
+def scale_time(t, a: float = 1.0):
+    return t / (1 + 1 / (a * torch.abs(t)))
 
 
 class TimeEncoding:

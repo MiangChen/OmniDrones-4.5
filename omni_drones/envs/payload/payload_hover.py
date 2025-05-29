@@ -20,23 +20,24 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-import omni.isaac.core.utils.prims as prim_utils
-import omni.isaac.core.objects as objects
-import omni_drones.utils.kit as kit_utils
 
 import torch
+
+from tensordict.tensordict import TensorDict, TensorDictBase
+from torchrl.data import UnboundedContinuousTensorSpec
+from torchrl.data import Composite as CompositeSpec
 import torch.distributions as D
+
+# Todo
+from isaacsim.util.debug_draw import _debug_draw
 
 from omni_drones.envs.isaac_env import AgentSpec, IsaacEnv
 from omni_drones.robots.drone import MultirotorBase
 from omni_drones.views import RigidPrimView
 from omni_drones.utils.torch import euler_to_quaternion
-
-from tensordict.tensordict import TensorDict, TensorDictBase
-from torchrl.data import UnboundedContinuousTensorSpec, CompositeSpec, DiscreteTensorSpec
-from omni.isaac.debug_draw import _debug_draw
-
+import omni_drones.utils.kit as kit_utils
 from .utils import attach_payload
+
 
 class PayloadHover(IsaacEnv):
     r"""
@@ -86,6 +87,7 @@ class PayloadHover(IsaacEnv):
     | `reward_distance_scale` | float | 1.6           | Scales the reward based on `target_payload_rpos`.                                                                                                                                                                                       |
     | `time_encoding`         | bool  | True          | Indicates whether to include time encoding in the observation space. If set to True, a 4-dimensional vector encoding the current progress of the episode is included in the observation. If set to False, this feature is not included. |
     """
+
     def __init__(self, cfg, headless):
         self.reward_effort_weight = cfg.task.reward_effort_weight
         self.reward_action_smoothness_weight = cfg.task.reward_action_smoothness_weight
@@ -121,10 +123,10 @@ class PayloadHover(IsaacEnv):
         push_force_scale = self.cfg.task.push_force_scale
         self.push_force_dist = D.Normal(
             torch.tensor([0., 0., 0.], device=self.device),
-            torch.tensor(push_force_scale, device=self.device)/self.dt
+            torch.tensor(push_force_scale, device=self.device) / self.dt
         )
         push_interval = self.cfg.task.push_interval
-        self.push_prob = (1 - torch.exp(-self.dt/torch.tensor(push_interval))).to(self.device)
+        self.push_prob = (1 - torch.exp(-self.dt / torch.tensor(push_interval))).to(self.device)
 
         payload_mass_scale = self.cfg.task.payload_mass_scale
         self.payload_mass_dist = D.Uniform(
@@ -224,9 +226,9 @@ class PayloadHover(IsaacEnv):
         env_mask = (torch.rand(self.num_envs, device=self.device) < self.push_prob).float()
         forces = self.push_force_dist.sample((self.num_envs,))
         forces = (
-            forces.clamp_max(self.push_force_dist.scale * 3)
-            * self.payload_masses
-            * env_mask.unsqueeze(-1)
+                forces.clamp_max(self.push_force_dist.scale * 3)
+                * self.payload_masses
+                * env_mask.unsqueeze(-1)
         )
         self.payload.apply_forces(forces)
 
@@ -242,7 +244,7 @@ class PayloadHover(IsaacEnv):
             self.drone_payload_rpos.flatten(1).unsqueeze(1),
             self.target_payload_rpos.flatten(1).unsqueeze(1),
             self.drone_state[..., 3:],
-            self.payload_vels.unsqueeze(1), # 6
+            self.payload_vels.unsqueeze(1),  # 6
         ]
         if self.time_encoding:
             t = (self.progress_buf / self.max_episode_length).unsqueeze(-1)
@@ -250,8 +252,8 @@ class PayloadHover(IsaacEnv):
         obs = torch.cat(obs, dim=-1)
 
         self.target_distance = torch.norm(self.target_payload_rpos[:, [0]], dim=-1)
-        self.stats["pos_error"].lerp_(self.target_distance, (1-self.alpha))
-        self.stats["action_smoothness"].lerp_(-self.drone.throttle_difference, (1-self.alpha))
+        self.stats["pos_error"].lerp_(self.target_distance, (1 - self.alpha))
+        self.stats["action_smoothness"].lerp_(-self.drone.throttle_difference, (1 - self.alpha))
         # self.smoothness = (
         #     self.drone.get_linear_smoothness()
         #     + self.drone.get_angular_smoothness()
@@ -285,15 +287,15 @@ class PayloadHover(IsaacEnv):
         reward_spin = 0.5 / (1.0 + torch.square(spin))
 
         reward = (
-            reward_pose
-            + reward_pose * (reward_up + reward_spin)
-            + reward_effort
-            + reward_action_smoothness
+                reward_pose
+                + reward_pose * (reward_up + reward_spin)
+                + reward_effort
+                + reward_action_smoothness
         )
 
         misbehave = (
-            (self.drone.pos[..., 2] < 0.2)
-            | (self.payload_pos[..., 2] < 0.2).unsqueeze(-1)
+                (self.drone.pos[..., 2] < 0.2)
+                | (self.payload_pos[..., 2] < 0.2).unsqueeze(-1)
         )
         hasnan = torch.isnan(self.drone_state).any(-1)
 

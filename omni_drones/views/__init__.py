@@ -28,14 +28,25 @@ from contextlib import contextmanager
 from typing import List, Optional, Tuple, Union
 import numpy as np
 import carb
-from omni.isaac.core.utils.prims import get_prim_parent, get_prim_at_path, set_prim_property, get_prim_property
-from pxr import Usd, UsdGeom, UsdPhysics, PhysxSchema
-from omni.isaac.core.utils.types import JointsState, ArticulationActions
-from omni.isaac.core.articulations import ArticulationView as _ArticulationView
-from omni.isaac.core.prims import RigidPrimView as _RigidPrimView
-from omni.isaac.core.prims import XFormPrimView
-from omni.isaac.core.simulation_context import SimulationContext
+# todo
+# from omni.isaac.core.utils.prims import get_prim_parent, get_prim_at_path, set_prim_property, get_prim_property
+# from pxr import Usd, UsdGeom, UsdPhysics, PhysxSchema
+# from omni.isaac.core.utils.types import JointsState, ArticulationActions
+# from omni.isaac.core.articulations import ArticulationView as _ArticulationView
+# from omni.isaac.core.prims import RigidPrimView as _RigidPrimView
+# from omni.isaac.core.prims import XFormPrimView
+# from omni.isaac.core.simulation_context import SimulationContext
 import omni
+
+from isaacsim.core.utils.prims import get_prim_parent, get_prim_at_path, set_prim_property, get_prim_property
+from pxr import Usd, UsdGeom, UsdPhysics, PhysxSchema
+from isaacsim.core.utils.types import JointsState, ArticulationActions
+from isaacsim.core.prims import Articulation
+
+from isaacsim.core.prims import RigidPrim as _RigidPrimView
+from isaacsim.core.prims import XFormPrim as XFormPrimView
+from isaacsim.core.api import SimulationContext
+
 import functools
 
 
@@ -43,14 +54,15 @@ def require_sim_initialized(func):
 
     @functools.wraps(func)
     def _func(*args, **kwargs):
-        if SimulationContext.instance()._physics_sim_view is None:
+        # todo
+        if SimulationContext.instance().physics_sim_view is None:
             raise RuntimeError("SimulationContext not initialzed.")
         return func(*args, **kwargs)
 
     return _func
 
 
-class ArticulationView(_ArticulationView):
+class ArticulationView(Articulation):
     def __init__(
         self,
         prim_paths_expr: str,
@@ -91,7 +103,9 @@ class ArticulationView(_ArticulationView):
             [x.replace(".*", "*") for x in self._regex_prim_paths]
         )
         assert self._physics_view.is_homogeneous
+        # todo
         self._physics_sim_view = physics_sim_view
+        # self.physics_sim_view = physics_sim_view
         if not self._is_initialized:
             self._metadata = self._physics_view.shared_metatype
             self._num_dof = self._physics_view.max_dofs
@@ -224,14 +238,16 @@ class ArticulationView(_ArticulationView):
         if not omni.timeline.get_timeline_interface().is_stopped() and self._physics_view is not None:
             if self.num_dof == 0:
                 return None
-            self._physics_sim_view.enable_warnings(False)
+            # todo
+            # self._physics_sim_view.enable_warnings(False)
             joint_positions = self._physics_view.get_dof_position_targets()
             if clone:
                 joint_positions = self._backend_utils.clone_tensor(joint_positions, device=self._device)
             joint_velocities = self._physics_view.get_dof_velocity_targets()
             if clone:
                 joint_velocities = self._backend_utils.clone_tensor(joint_velocities, device=self._device)
-            self._physics_sim_view.enable_warnings(True)
+            # todo
+            # self._physics_sim_view.enable_warnings(True)
             # TODO: implement the effort part
             return ArticulationActions(
                 joint_positions=joint_positions,
@@ -248,9 +264,13 @@ class ArticulationView(_ArticulationView):
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         indices = self._resolve_env_indices(env_indices)
         if self._physics_view is not None:
-            with disable_warnings(self._physics_sim_view):
-                poses = self._physics_view.get_root_transforms()[indices]
-                poses = torch.unflatten(poses, 0, self.shape)
+            # todo
+            # with disable_warnings(self._physics_sim_view):
+            #     poses = self._physics_view.get_root_transforms()[indices]
+            #     poses = torch.unflatten(poses, 0, self.shape)
+
+            poses = self._physics_view.get_root_transforms()[indices]
+            poses = torch.unflatten(poses, 0, self.shape)
             if clone:
                 poses = poses.clone()
             return poses[..., :3], poses[..., [6, 3, 4, 5]]

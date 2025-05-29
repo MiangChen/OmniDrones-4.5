@@ -24,9 +24,9 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.distributions as D
 
-from torchrl.data import CompositeSpec, TensorSpec
+from torchrl.data import TensorSpec
+from torchrl.data import Composite as CompositeSpec
 from torchrl.modules import ProbabilisticActor
 from torchrl.envs.transforms import CatTensors
 from tensordict import TensorDict
@@ -41,6 +41,7 @@ from ..utils.valuenorm import ValueNorm1
 from ..modules.distributions import IndependentNormal
 from .common import GAE
 
+
 @dataclass
 class PPOConfig:
     name: str = "ppo"
@@ -53,6 +54,7 @@ class PPOConfig:
     priv_critic: bool = False
 
     checkpoint_path: Union[str, None] = None
+
 
 cs = ConfigStore.instance()
 cs.store("ppo", node=PPOConfig, group="algo")
@@ -84,12 +86,12 @@ class Actor(nn.Module):
 class PPOPolicy(TensorDictModuleBase):
 
     def __init__(
-        self,
-        cfg: PPOConfig,
-        observation_spec: CompositeSpec,
-        action_spec: CompositeSpec,
-        reward_spec: TensorSpec,
-        device
+            self,
+            cfg: PPOConfig,
+            observation_spec: CompositeSpec,
+            action_spec: CompositeSpec,
+            reward_spec: TensorSpec,
+            device
     ):
         super().__init__()
         self.cfg = cfg
@@ -98,7 +100,7 @@ class PPOPolicy(TensorDictModuleBase):
         self.entropy_coef = 0.001
         self.clip_param = 0.1
         self.critic_loss_fn = nn.HuberLoss(delta=10)
-        self.n_agents, self.action_dim = action_spec.shape[-2:]
+        self.n_agents, self.action_dim = action_spec["agents"]["action"].shape[-2:]  # action_spec.shape[-2:]
         self.gae = GAE(0.99, 0.95)
 
         fake_input = observation_spec.zero()
@@ -118,7 +120,7 @@ class PPOPolicy(TensorDictModuleBase):
                 )
             )
         else:
-            actor_module=TensorDictModule(
+            actor_module = TensorDictModule(
                 nn.Sequential(make_mlp([256, 256, 256]), Actor(self.action_dim)),
                 [("agents", "observation")], ["loc", "scale"]
             )
@@ -217,7 +219,7 @@ class PPOPolicy(TensorDictModuleBase):
         adv = tensordict["adv"]
         ratio = torch.exp(log_probs - tensordict["sample_log_prob"]).unsqueeze(-1)
         surr1 = adv * ratio
-        surr2 = adv * ratio.clamp(1.-self.clip_param, 1.+self.clip_param)
+        surr2 = adv * ratio.clamp(1. - self.clip_param, 1. + self.clip_param)
         policy_loss = - torch.mean(torch.min(surr1, surr2)) * self.action_dim
         entropy_loss = - self.entropy_coef * torch.mean(entropy)
 

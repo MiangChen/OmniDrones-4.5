@@ -20,11 +20,11 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-
-import omni.isaac.core.utils.prims as prim_utils
+# todo
+import isaacsim.core.utils.prims as prim_utils
+import isaacsim.core.api.objects as objects
 import omni.physx.scripts.utils as script_utils
 from pxr import UsdPhysics
-import omni.isaac.core.objects as objects
 
 import omni_drones.utils.kit as kit_utils
 from ..utils import create_bar

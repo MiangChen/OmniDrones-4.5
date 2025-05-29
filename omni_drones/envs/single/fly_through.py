@@ -24,26 +24,23 @@
 import torch
 import torch.distributions as D
 from tensordict.tensordict import TensorDict, TensorDictBase
-from torchrl.data import (
-    UnboundedContinuousTensorSpec,
-    CompositeSpec,
-    BinaryDiscreteTensorSpec,
-    DiscreteTensorSpec
-)
+from torchrl.data import UnboundedContinuousTensorSpec, BinaryDiscreteTensorSpec
+from torchrl.data import Composite as CompositeSpec
 
-import omni.isaac.core.utils.torch as torch_utils
-import omni.isaac.core.utils.prims as prim_utils
-import omni.physx.scripts.utils as script_utils
-import omni.isaac.core.objects as objects
-from omni.isaac.debug_draw import _debug_draw
+# Todo
+# import isaacsim.core.utils.torch as torch_utils
+# import omni.physx.scripts.utils as script_utils
+# from isaacsim.util.debug_draw import _debug_draw
+import isaacsim.core.utils.prims as prim_utils
+import isaacsim.core.api.objects as objects
 
 import omni_drones.utils.kit as kit_utils
 from omni_drones.utils.torch import euler_to_quaternion
 from omni_drones.envs.isaac_env import AgentSpec, IsaacEnv
 from omni_drones.robots.drone import MultirotorBase
 from omni_drones.views import ArticulationView, RigidPrimView
-
 from omni_drones.robots import ASSET_PATH
+
 
 class FlyThrough(IsaacEnv):
     r"""
@@ -93,6 +90,7 @@ class FlyThrough(IsaacEnv):
     | `reward_distance_scale` | float | 1.0           | Scales the reward based on the distance between the payload and its target.                                                                                                                                                             |
     | `time_encoding`         | bool  | True          | Indicates whether to include time encoding in the observation space. If set to True, a 4-dimensional vector encoding the current progress of the episode is included in the observation. If set to False, this feature is not included. |
     """
+
     def __init__(self, cfg, headless):
         self.reward_effort_weight = cfg.task.reward_effort_weight
         self.reward_distance_scale = cfg.task.reward_distance_scale
@@ -149,7 +147,6 @@ class FlyThrough(IsaacEnv):
         )
 
         self.alpha = 0.7
-
 
     def _design_scene(self):
         drone_model_cfg = self.cfg.task.drone_model
@@ -282,8 +279,8 @@ class FlyThrough(IsaacEnv):
         obs = torch.cat(obs, dim=-1)
 
         self.pos_error = torch.norm(self.target_drone_rpos, dim=-1)
-        self.stats["pos_error"].mul_(self.alpha).add_((1-self.alpha) * self.pos_error)
-        self.stats["drone_uprightness"].mul_(self.alpha).add_((1-self.alpha) * self.drone_up[..., 2])
+        self.stats["pos_error"].mul_(self.alpha).add_((1 - self.alpha) * self.pos_error)
+        self.stats["drone_uprightness"].mul_(self.alpha).add_((1 - self.alpha) * self.drone_up[..., 2])
 
         return TensorDict(
             {
@@ -334,17 +331,17 @@ class FlyThrough(IsaacEnv):
             # self.stats["collision"].add_(collision_reward)
         assert reward_pos.shape == reward_up.shape == reward_spin.shape
         reward = (
-            reward_pos
-            + 0.5 * reward_gate
-            + (reward_pos + 0.3) * (reward_up + reward_spin)
-            + reward_effort
-        ) # * (1 - collision_reward)
+                reward_pos
+                + 0.5 * reward_gate
+                + (reward_pos + 0.3) * (reward_up + reward_spin)
+                + reward_effort
+        )  # * (1 - collision_reward)
 
         misbehave = (
-            (self.drone.pos[..., 2] < 0.2)
-            | (self.drone.pos[..., 2] > 2.5)
-            | (self.drone.pos[..., 1].abs() > 2.)
-            | (distance_to_target > 6.)
+                (self.drone.pos[..., 2] < 0.2)
+                | (self.drone.pos[..., 2] > 2.5)
+                | (self.drone.pos[..., 1].abs() > 2.)
+                | (distance_to_target > 6.)
         )
         hasnan = torch.isnan(self.drone_state).any(-1)
         invalid = (crossing_plane & ~through_gate)

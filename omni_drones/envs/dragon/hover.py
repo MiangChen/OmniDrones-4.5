@@ -21,21 +21,22 @@
 # SOFTWARE.
 
 
+from dataclasses import dataclass
+from hydra.core.config_store import ConfigStore
 import torch
 import torch.distributions as D
+from tensordict.tensordict import TensorDict, TensorDictBase
+from torchrl.data import UnboundedContinuousTensorSpec,  DiscreteTensorSpec
+from torchrl.data import Composite as CompositeSpec
 
-import omni.isaac.core.utils.prims as prim_utils
+# todo
+# import omni.isaac.core.utils.prims as prim_utils
+
 
 from omni_drones.envs.isaac_env import AgentSpec, IsaacEnv
 from omni_drones.robots.drone.dragon import Dragon, DragonCfg
 from omni_drones.views import ArticulationView, RigidPrimView
 from omni_drones.utils.torch import euler_to_quaternion, quat_axis
-
-from tensordict.tensordict import TensorDict, TensorDictBase
-from torchrl.data import UnboundedContinuousTensorSpec, CompositeSpec, DiscreteTensorSpec
-
-from hydra.core.config_store import ConfigStore
-from dataclasses import dataclass
 
 
 @dataclass
@@ -84,6 +85,7 @@ class DragonHover(IsaacEnv):
 
 
     """
+
     def __init__(self, cfg, headless):
         self.reward_effort_weight = cfg.task.reward_effort_weight
         self.reward_action_smoothness_weight = cfg.task.reward_action_smoothness_weight
@@ -134,7 +136,7 @@ class DragonHover(IsaacEnv):
     def _set_specs(self):
         drone_state_dim = self.drone.state_spec.shape[-1]
         observation_dim = (
-            drone_state_dim + 3 + 3
+                drone_state_dim + 3 + 3
         )
 
         if self.cfg.task.time_encoding:
@@ -175,7 +177,6 @@ class DragonHover(IsaacEnv):
         self.observation_spec["stats"] = stats_spec
         self.stats = stats_spec.zero()
 
-
     def _reset_idx(self, env_ids: torch.Tensor):
         self.drone._reset_idx(env_ids, self.training)
 
@@ -209,7 +210,7 @@ class DragonHover(IsaacEnv):
         self.rpos = self.target_pos - self.drone.pos[..., 0, :]
         self.rheading = self.target_heading - self.drone.heading[..., 0, :]
 
-        obs = [self.rpos, self.drone_state, self.rheading,]
+        obs = [self.rpos, self.drone_state, self.rheading, ]
         if self.time_encoding:
             t = (self.progress_buf / self.max_episode_length).unsqueeze(-1)
             obs.append(t.expand(-1, self.time_encoding_dim).unsqueeze(1))
@@ -244,10 +245,10 @@ class DragonHover(IsaacEnv):
 
         reward = (
             # 1.
-            + reward_pose
-            + reward_joint_vel
-            # + reward_effort
-            + reward_action_smoothness
+                + reward_pose
+                + reward_joint_vel
+                # + reward_effort
+                + reward_action_smoothness
         )
 
         misbehave = (self.drone.pos[..., 2] < 0.2).any(-1) | (distance > 4)
@@ -256,9 +257,9 @@ class DragonHover(IsaacEnv):
         terminated = misbehave | hasnan
         truncated = (self.progress_buf >= self.max_episode_length).unsqueeze(-1)
 
-        self.stats["pos_error"].lerp_(pos_error, (1-self.alpha))
-        self.stats["heading_alignment"].lerp_(heading_alignment, (1-self.alpha))
-        self.stats["action_smoothness"].lerp_(-self.drone.throttle_difference.sum(-1), (1-self.alpha))
+        self.stats["pos_error"].lerp_(pos_error, (1 - self.alpha))
+        self.stats["heading_alignment"].lerp_(heading_alignment, (1 - self.alpha))
+        self.stats["action_smoothness"].lerp_(-self.drone.throttle_difference.sum(-1), (1 - self.alpha))
         self.stats["return"].add_(reward)
         self.stats["episode_len"][:] = self.progress_buf.unsqueeze(1)
 

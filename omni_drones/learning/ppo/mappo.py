@@ -20,25 +20,23 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.distributions as D
-
-from torchrl.data import CompositeSpec, TensorSpec
-from torchrl.modules import ProbabilisticActor
-from torchrl.envs.transforms import CatTensors
-from tensordict import TensorDict
-from tensordict.nn import TensorDictModule, TensorDictSequential
-
 from hydra.core.config_store import ConfigStore
 from dataclasses import dataclass
 import logging
 
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torchrl.data import TensorSpec
+from torchrl.data import Composite as CompositeSpec
+from torchrl.modules import ProbabilisticActor
+from tensordict import TensorDict
+from tensordict.nn import TensorDictModule
+
 from ..utils.valuenorm import ValueNorm1
 from ..modules.distributions import IndependentNormal
 from .common import GAE
+
 
 @dataclass
 class PPOConfig:
@@ -48,6 +46,7 @@ class PPOConfig:
     num_minibatches: int = 16
 
     share_actor: bool = True
+
 
 cs = ConfigStore.instance()
 cs.store("mappo", node=PPOConfig, group="algo")
@@ -77,12 +76,12 @@ class Actor(nn.Module):
 class MAPPOPolicy:
 
     def __init__(
-        self,
-        cfg: PPOConfig,
-        observation_spec: CompositeSpec,
-        action_spec: CompositeSpec,
-        reward_spec: TensorSpec,
-        device
+            self,
+            cfg: PPOConfig,
+            observation_spec: CompositeSpec,
+            action_spec: CompositeSpec,
+            reward_spec: TensorSpec,
+            device
     ):
         self.cfg = cfg
         self.device = device
@@ -96,7 +95,7 @@ class MAPPOPolicy:
         fake_input = observation_spec.zero()
 
         if cfg.share_actor:
-            actor_module=TensorDictModule(
+            actor_module = TensorDictModule(
                 nn.Sequential(make_mlp([256, 256, 256]), Actor(self.action_dim)),
                 [("agents", "observation")], ["loc", "scale"]
             )
@@ -183,7 +182,7 @@ class MAPPOPolicy:
         adv = tensordict["adv"]
         ratio = torch.exp(log_probs - tensordict["sample_log_prob"]).unsqueeze(-1)
         surr1 = adv * ratio
-        surr2 = adv * ratio.clamp(1.-self.clip_param, 1.+self.clip_param)
+        surr2 = adv * ratio.clamp(1. - self.clip_param, 1. + self.clip_param)
         policy_loss = - torch.mean(torch.min(surr1, surr2)) * self.action_dim
         entropy_loss = - self.entropy_coef * torch.mean(entropy)
 

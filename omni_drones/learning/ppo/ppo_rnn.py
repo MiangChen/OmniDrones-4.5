@@ -20,25 +20,23 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-from dataclasses import dataclass, replace
-from functools import partial
+from dataclasses import dataclass
+from hydra.core.config_store import ConfigStore
 from typing import Union
 
 import torch
-import torch.distributions as D
 import torch.nn as nn
 import torch.nn.functional as F
 
-from hydra.core.config_store import ConfigStore
 from tensordict import TensorDict
 from tensordict.nn import TensorDictModuleBase, TensorDictModule, TensorDictSequential
 
-from torchrl.data import CompositeSpec, TensorSpec, UnboundedContinuousTensorSpec
-from torchrl.envs import CatTensors, TensorDictPrimer
+from torchrl.data import TensorSpec
+from torchrl.data import Composite as CompositeSpec
+from torchrl.envs import CatTensors
 from torchrl.modules import ProbabilisticActor
 
 from ..modules.distributions import IndependentNormal
-
 from ..utils.gae import compute_gae
 from ..utils.valuenorm import ValueNorm1
 
@@ -72,7 +70,7 @@ class LSTM(nn.Module):
         self.skip_conn = skip_conn
 
     def forward(
-        self, x: torch.Tensor, is_init: torch.Tensor, hx: torch.Tensor, cx: torch.Tensor
+            self, x: torch.Tensor, is_init: torch.Tensor, hx: torch.Tensor, cx: torch.Tensor
     ):
         T = x.shape[1]
         hx, cx = hx[:, 0], cx[:, 0]
@@ -93,11 +91,11 @@ class LSTM(nn.Module):
         )
 
     def _forward(
-        self, x: torch.Tensor, is_init: torch.Tensor, hx: torch.Tensor, cx: torch.Tensor
+            self, x: torch.Tensor, is_init: torch.Tensor, hx: torch.Tensor, cx: torch.Tensor
     ):
         batch_shape = x.shape[:-1]
         reset = (
-            1 - is_init.reshape(is_init.shape + (1,) * (hx.ndim - is_init.ndim)).float()
+                1 - is_init.reshape(is_init.shape + (1,) * (hx.ndim - is_init.ndim)).float()
         )
         hx = hx * reset
         cx = cx * reset
@@ -135,7 +133,7 @@ class GRU(nn.Module):
     def _forward(self, x: torch.Tensor, is_init: torch.Tensor, hx: torch.Tensor):
         batch_shape = x.shape[:-1]
         reset = (
-            1 - is_init.reshape(is_init.shape + (1,) * (hx.ndim - is_init.ndim)).float()
+                1 - is_init.reshape(is_init.shape + (1,) * (hx.ndim - is_init.ndim)).float()
         )
         hx = hx * reset
         x = x.reshape(-1, x.shape[-1])
@@ -162,6 +160,7 @@ class PPOConfig:
 
     checkpoint_path: Union[str, None] = None
 
+
 cs = ConfigStore.instance()
 cs.store("ppo_gru", node=PPOConfig, group="algo")
 cs.store("ppo_lstm", node=PPOConfig(rnn="lstm"), group="algo")
@@ -169,12 +168,12 @@ cs.store("ppo_lstm", node=PPOConfig(rnn="lstm"), group="algo")
 
 class PPORNNPolicy(TensorDictModuleBase):
     def __init__(
-        self,
-        cfg: PPOConfig,
-        observation_spec: CompositeSpec,
-        action_spec: TensorSpec,
-        reward_spec: TensorSpec,
-        device,
+            self,
+            cfg: PPOConfig,
+            observation_spec: CompositeSpec,
+            action_spec: TensorSpec,
+            reward_spec: TensorSpec,
+            device,
     ):
         super().__init__()
         self.cfg = cfg

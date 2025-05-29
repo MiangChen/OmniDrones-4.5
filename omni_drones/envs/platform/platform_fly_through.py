@@ -24,14 +24,16 @@
 import torch
 import torch.distributions as D
 from torch.func import vmap
-
-import omni.isaac.core.utils.torch as torch_utils
-import omni.isaac.core.utils.prims as prim_utils
 from tensordict.tensordict import TensorDict, TensorDictBase
-from torchrl.data import UnboundedContinuousTensorSpec, CompositeSpec, DiscreteTensorSpec
+from torchrl.data import UnboundedContinuousTensorSpec
+from torchrl.data import Composite as CompositeSpec
+
+# todo
+import isaacsim.core.utils.torch as torch_utils
+# import isaacsim.core.utils.prims as prim_utils
+
 
 import omni_drones.utils.kit as kit_utils
-
 from omni_drones.envs.isaac_env import AgentSpec, IsaacEnv
 from omni_drones.views import RigidPrimView
 from omni_drones.utils.torch import cpos, off_diag, others
@@ -97,6 +99,7 @@ class PlatformFlyThrough(IsaacEnv):
     | `time_encoding`         | bool  | True          |             |
     | `obstacle_spacing`      | float | 1.0           |             |
     """
+
     def __init__(self, cfg, headless):
         self.reward_effort_weight = cfg.task.reward_effort_weight
         self.reward_action_smoothness_weight = cfg.task.reward_action_smoothness_weight
@@ -106,7 +109,7 @@ class PlatformFlyThrough(IsaacEnv):
 
         self.num_drones = cfg.task.num_drones
         self.arm_length = cfg.task.arm_length
-        self.joint_damping  = cfg.task.joint_damping
+        self.joint_damping = cfg.task.joint_damping
         self.obstacle_spacing = cfg.task.obstacle_spacing
         super().__init__(cfg, headless)
 
@@ -143,7 +146,7 @@ class PlatformFlyThrough(IsaacEnv):
             torch.tensor([0.2, 0.2, 2.0], device=self.device)
         )
         self.target_pos = torch.tensor([2.0, 0., 2.25], device=self.device)
-        self.target_heading =  torch.zeros(self.num_envs, 3, device=self.device)
+        self.target_heading = torch.zeros(self.num_envs, 3, device=self.device)
         self.target_up = torch.zeros(self.num_envs, 3, device=self.device)
         self.last_distance = torch.zeros(self.num_envs, 1, device=self.device)
 
@@ -181,20 +184,20 @@ class PlatformFlyThrough(IsaacEnv):
         create_obstacle(
             "/World/envs/env_0/obstacle_0",
             prim_type="Capsule",
-            translation=(0.,-self.obstacle_spacing, 2.5),
-            attributes={"radius":0.05, "height": 5},
+            translation=(0., -self.obstacle_spacing, 2.5),
+            attributes={"radius": 0.05, "height": 5},
         )
         create_obstacle(
             "/World/envs/env_0/obstacle_1",
             prim_type="Capsule",
             translation=(0., 0., 2.5),
-            attributes={"radius":0.05, "height": 5},
+            attributes={"radius": 0.05, "height": 5},
         )
         create_obstacle(
             "/World/envs/env_0/obstacle_2",
             prim_type="Capsule",
             translation=(0., self.obstacle_spacing, 2.5),
-            attributes={"radius":0.05, "height": 5},
+            attributes={"radius": 0.05, "height": 5},
         )
         return ["/World/defaultGroundPlane"]
 
@@ -207,7 +210,7 @@ class PlatformFlyThrough(IsaacEnv):
 
         observation_spec = CompositeSpec({
             "obs_self": UnboundedContinuousTensorSpec((1, drone_state_dim + self.drone.n)),
-            "obs_others": UnboundedContinuousTensorSpec((self.drone.n-1, 13)),
+            "obs_others": UnboundedContinuousTensorSpec((self.drone.n - 1, 13)),
             "state_frame": UnboundedContinuousTensorSpec((1, frame_state_dim)),
         }).to(self.device)
         observation_central_spec = CompositeSpec({
@@ -256,7 +259,7 @@ class PlatformFlyThrough(IsaacEnv):
         platform_rpy = self.init_rpy_dist.sample(env_ids.shape)
         platform_rot = euler_to_quaternion(platform_rpy)
         platform_heading = torch_utils.quat_axis(platform_rot, 0)
-        platform_up = torch_utils.quat_axis(platform_rot,  2)
+        platform_up = torch_utils.quat_axis(platform_rot, 2)
         self.platform.set_world_poses(platform_pos, platform_rot, env_indices=env_ids)
         self.platform.set_velocities(self.init_vels[env_ids], env_ids)
 
@@ -309,15 +312,15 @@ class PlatformFlyThrough(IsaacEnv):
         if self.time_encoding:
             t = (self.progress_buf / self.max_episode_length).unsqueeze(-1)
             platform_state = torch.cat([
-                self.target_platform_rpose, # 9
+                self.target_platform_rpose,  # 9
                 self.platform_state[..., 3:],
                 t.expand(-1, self.time_encoding_dim).unsqueeze(1)
-            ], dim=-1) # [num_envs, 1, 25+time_encoding_dim]
+            ], dim=-1)  # [num_envs, 1, 25+time_encoding_dim]
         else:
             platform_state = torch.cat([
-                self.target_platform_rpose, # 9
+                self.target_platform_rpose,  # 9
                 self.platform_state[..., 3:]
-            ], dim=-1) # [num_envs, 1, 25]
+            ], dim=-1)  # [num_envs, 1, 25]
 
         obstacle_platform_rpos = self.obstacle_pos[..., [0, 1]] - self.platform.pos[..., [0, 1]]
 
@@ -334,9 +337,9 @@ class PlatformFlyThrough(IsaacEnv):
         obs["obstacles"] = obstacle_platform_rpos.unsqueeze(1).expand(-1, self.drone.n, 3, 2)
 
         state = TensorDict({}, [self.num_envs])
-        state["state_drones"] = obs["obs_self"].squeeze(2)    # [num_envs, drone.n, drone_state_dim]
-        state["state_frame"] = platform_state                # [num_envs, 1, platform_state_dim]
-        state["obstacles"] = obstacle_platform_rpos    # [num_envs, 3, 2]
+        state["state_drones"] = obs["obs_self"].squeeze(2)  # [num_envs, drone.n, drone_state_dim]
+        state["state_frame"] = platform_state  # [num_envs, 1, platform_state_dim]
+        state["obstacles"] = obstacle_platform_rpos  # [num_envs, 3, 2]
 
         self.pos_error = torch.norm(self.target_platform_rpos, dim=-1)
         self.heading_alignment = torch.sum(self.platform.heading * self.target_heading.unsqueeze(1), dim=-1)
@@ -367,7 +370,8 @@ class PlatformFlyThrough(IsaacEnv):
         reward_spin = 1. / (1 + torch.square(spinnage))
 
         reward_effort = self.reward_effort_weight * torch.exp(-self.effort).mean(-1, keepdim=True)
-        reward_action_smoothness = self.reward_action_smoothness_weight * torch.exp(-self.drone.throttle_difference).mean(-1, keepdim=True)
+        reward_action_smoothness = self.reward_action_smoothness_weight * torch.exp(
+            -self.drone.throttle_difference).mean(-1, keepdim=True)
 
         self.last_distance[:] = distance
 
@@ -385,15 +389,15 @@ class PlatformFlyThrough(IsaacEnv):
 
         reward = torch.zeros(self.num_envs, self.drone.n, device=self.device)
         reward[:] = (
-            reward_pose
-            + reward_pose * (reward_up + reward_spin)
-            + reward_effort
-            + reward_action_smoothness
-        ) # * (1 - collision_reward)
+                reward_pose
+                + reward_pose * (reward_up + reward_spin)
+                + reward_effort
+                + reward_action_smoothness
+        )  # * (1 - collision_reward)
 
         misbehave = (
-            (self.drone_states[..., 2] < 0.2).any(-1, keepdim=True)
-            | (self.platform.pos[..., 1].abs() > 1.5).any(-1, keepdim=True)
+                (self.drone_states[..., 2] < 0.2).any(-1, keepdim=True)
+                | (self.platform.pos[..., 1].abs() > 1.5).any(-1, keepdim=True)
         )
         hasnan = torch.isnan(self.drone_states).any(-1)
 
@@ -405,9 +409,9 @@ class PlatformFlyThrough(IsaacEnv):
 
         self.stats["return"].add_(reward)
         self.stats["episode_len"][:] = self.progress_buf.unsqueeze(-1)
-        self.stats["pos_error"].lerp_(self.pos_error, (1-self.alpha))
-        self.stats["heading_alignment"].lerp_(self.heading_alignment, (1-self.alpha))
-        self.stats["action_smoothness"].lerp_(-self.drone.throttle_difference.mean(-1, True), (1-self.alpha))
+        self.stats["pos_error"].lerp_(self.pos_error, (1 - self.alpha))
+        self.stats["heading_alignment"].lerp_(self.heading_alignment, (1 - self.alpha))
+        self.stats["action_smoothness"].lerp_(-self.drone.throttle_difference.mean(-1, True), (1 - self.alpha))
 
         return TensorDict(
             {

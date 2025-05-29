@@ -1,16 +1,13 @@
-import logging
 import os
-import time
-
 import hydra
-import torch
 
-from tqdm import tqdm
 from omegaconf import OmegaConf
+from setproctitle import setproctitle
+import torch
+from torchrl.envs.transforms import TransformedEnv, InitTracker, Compose
+from tqdm import tqdm
 
 from omni_drones import init_simulation_app
-from torchrl.data import CompositeSpec
-from torchrl.envs.utils import set_exploration_type, ExplorationType
 from omni_drones.utils.torchrl import SyncDataCollector
 from omni_drones.utils.torchrl.transforms import (
     FromMultiDiscreteAction,
@@ -20,11 +17,8 @@ from omni_drones.utils.torchrl.transforms import (
 from omni_drones.utils.torchrl import EpisodeStats
 from omni_drones.learning import ALGOS
 
-from setproctitle import setproctitle
-from torchrl.envs.transforms import TransformedEnv, InitTracker, Compose
-
-
 FILE_PATH = os.path.dirname(__file__)
+
 
 @hydra.main(config_path=FILE_PATH, config_name="train", version_base=None)
 def main(cfg):
@@ -32,6 +26,14 @@ def main(cfg):
     OmegaConf.resolve(cfg)
     OmegaConf.set_struct(cfg, False)
     simulation_app = init_simulation_app(cfg)
+
+
+    from assets_scripts_linux import PATH_ISAACSIM_ASSETS
+    import carb
+    carb.settings.get_settings().set(
+        "/presitent/isaac/asset_root/default",
+        f"{PATH_ISAACSIM_ASSETS}/Assets/Isaac/4.5",
+    )
 
     setproctitle(cfg.task.name)
     print(OmegaConf.to_yaml(cfg))
@@ -88,7 +90,7 @@ def main(cfg):
 
     stats_keys = [
         k for k in base_env.observation_spec.keys(True, True)
-        if isinstance(k, tuple) and k[0]=="stats"
+        if isinstance(k, tuple) and k[0] == "stats"
     ]
     episode_stats = EpisodeStats(stats_keys)
     collector = SyncDataCollector(

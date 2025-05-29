@@ -21,17 +21,18 @@
 # SOFTWARE.
 
 
-import omni_drones.utils.kit as kit_utils
-import omni_drones.utils.scene as scene_utils
 import torch
 import torch.distributions as D
 from torch.func import vmap
+from tensordict.tensordict import TensorDict, TensorDictBase
+from torchrl.data import UnboundedContinuousTensorSpec
+from torchrl.data import Composite as CompositeSpec
 
+import omni_drones.utils.kit as kit_utils
+import omni_drones.utils.scene as scene_utils
 from omni_drones.envs.isaac_env import AgentSpec, IsaacEnv, List, Optional
 from omni_drones.utils.torch import cpos, off_diag, others, make_cells, euler_to_quaternion
 from omni_drones.robots.drone import MultirotorBase
-from tensordict.tensordict import TensorDict, TensorDictBase
-from torchrl.data import CompositeSpec, UnboundedContinuousTensorSpec, DiscreteTensorSpec
 
 REGULAR_HEXAGON = [
     [0, 0, 0],

@@ -3,46 +3,40 @@ import os
 
 import hydra
 import torch
-import numpy as np
-import pandas as pd
-import wandb
-import matplotlib.pyplot as plt
 
-from tqdm import tqdm
+from einops.layers.torch import Rearrange
 from omegaconf import OmegaConf
-
-from omni_drones import init_simulation_app
-from torchrl.data import CompositeSpec, TensorSpec
+from setproctitle import setproctitle
+from tqdm import tqdm
+from tensordict import TensorDict
+from tensordict.nn import TensorDictSequential, TensorDictModule, TensorDictModuleBase
+from torch.func import vmap
+import torch.nn as nn
+import torch.nn.functional as F
+from torchrl.data import TensorSpec
+from torchrl.data import Composite as CompositeSpec
 from torchrl.envs.utils import set_exploration_type, ExplorationType
+from torchrl.envs.transforms import TransformedEnv, InitTracker, Compose
+from torchrl.envs.transforms import CatTensors
+from torchrl.modules import ProbabilisticActor
+import wandb
+
+from omni_drones.utils.wandb import init_wandb
+from omni_drones.utils.torchrl import RenderCallback, EpisodeStats
+from omni_drones.learning.ppo.ppo import PPOConfig, make_mlp, make_batch, Actor, IndependentNormal, GAE, ValueNorm1
+from omni_drones import init_simulation_app
 from omni_drones.utils.torchrl import SyncDataCollector
 from omni_drones.utils.torchrl.transforms import (
     FromMultiDiscreteAction,
     FromDiscreteAction,
     ravel_composite,
-    AttitudeController,
-    RateController,
 )
-from omni_drones.utils.wandb import init_wandb
-from omni_drones.utils.torchrl import RenderCallback, EpisodeStats
-
-from setproctitle import setproctitle
-from torchrl.envs.transforms import TransformedEnv, InitTracker, Compose
-
-import torch.nn as nn
-import torch.nn.functional as F
-import einops
-from torch.func import vmap
-from einops.layers.torch import Rearrange
-from omni_drones.learning.ppo.ppo import PPOConfig, make_mlp, make_batch, Actor, IndependentNormal, GAE, ValueNorm1
-from tensordict import TensorDict
-from tensordict.nn import TensorDictSequential, TensorDictModule, TensorDictModuleBase
-from torchrl.envs.transforms import CatTensors
-from torchrl.modules import ProbabilisticActor
 
 
 class PPOPolicy(TensorDictModuleBase):
 
-    def __init__(self, cfg: PPOConfig, observation_spec: CompositeSpec, action_spec: CompositeSpec, reward_spec: TensorSpec, device):
+    def __init__(self, cfg: PPOConfig, observation_spec: CompositeSpec, action_spec: CompositeSpec,
+                 reward_spec: TensorSpec, device):
         super().__init__()
         self.cfg = cfg
         self.device = device
@@ -147,7 +141,7 @@ class PPOPolicy(TensorDictModuleBase):
         adv = tensordict["adv"]
         ratio = torch.exp(log_probs - tensordict["sample_log_prob"]).unsqueeze(-1)
         surr1 = adv * ratio
-        surr2 = adv * ratio.clamp(1.-self.clip_param, 1.+self.clip_param)
+        surr2 = adv * ratio.clamp(1. - self.clip_param, 1. + self.clip_param)
         policy_loss = - torch.mean(torch.min(surr1, surr2)) * self.action_dim
         entropy_loss = - self.entropy_coef * torch.mean(entropy)
 
@@ -208,9 +202,9 @@ def main(cfg):
         transform = ravel_composite(base_env.observation_spec, ("agents", "observation_central"))
         transforms.append(transform)
     if (
-        cfg.task.get("flatten_intrinsics", True)
-        and ("agents", "intrinsics") in base_env.observation_spec.keys(True)
-        and isinstance(base_env.observation_spec[("agents", "intrinsics")], CompositeSpec)
+            cfg.task.get("flatten_intrinsics", True)
+            and ("agents", "intrinsics") in base_env.observation_spec.keys(True)
+            and isinstance(base_env.observation_spec[("agents", "intrinsics")], CompositeSpec)
     ):
         transforms.append(ravel_composite(base_env.observation_spec, ("agents", "intrinsics"), start_dim=-1))
 
@@ -251,7 +245,7 @@ def main(cfg):
 
     stats_keys = [
         k for k in base_env.observation_spec.keys(True, True)
-        if isinstance(k, tuple) and k[0]=="stats"
+        if isinstance(k, tuple) and k[0] == "stats"
     ]
     episode_stats = EpisodeStats(stats_keys)
     collector = SyncDataCollector(
@@ -265,8 +259,8 @@ def main(cfg):
 
     @torch.no_grad()
     def evaluate(
-        seed: int=0,
-        exploration_type: ExplorationType=ExplorationType.MODE
+            seed: int = 0,
+            exploration_type: ExplorationType = ExplorationType.MODE
     ):
 
         base_env.enable_render(True)
@@ -292,7 +286,7 @@ def main(cfg):
         first_done = torch.argmax(done.long(), dim=1).cpu()
 
         def take_first_episode(tensor: torch.Tensor):
-            indices = first_done.reshape(first_done.shape+(1,)*(tensor.ndim-2))
+            indices = first_done.reshape(first_done.shape + (1,) * (tensor.ndim - 2))
             return torch.take_along_dim(tensor, indices, dim=1).reshape(-1)
 
         traj_stats = {

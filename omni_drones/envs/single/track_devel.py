@@ -18,24 +18,19 @@
 # AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
-
-
-import omni.isaac.core.utils.prims as prim_utils
 
 import torch
 import torch.distributions as D
 from torch.func import vmap
-from omni.isaac.debug_draw import _debug_draw
 from tensordict.tensordict import TensorDict, TensorDictBase
-from torchrl.data import (
-    BinaryDiscreteTensorSpec,
-    CompositeSpec,
-    UnboundedContinuousTensorSpec,
-)
+from torchrl.data import UnboundedContinuousTensorSpec
+from torchrl.data import Composite as CompositeSpec
+
+# todo
+import isaacsim.core.utils.prims as prim_utils
+from isaacsim.util.debug_draw import _debug_draw
 
 import omni_drones.utils.kit as kit_utils
-
 from omni_drones.envs.isaac_env import AgentSpec, IsaacEnv
 from omni_drones.robots.drone import MultirotorBase
 from omni_drones.utils.torch import euler_to_quaternion, normalize, quat_rotate
@@ -46,7 +41,7 @@ from ..utils import lemniscate, scale_time
 
 def attach_payload(parent_path):
     import omni.physx.scripts.utils as script_utils
-    from omni.isaac.core import objects
+    from isaacsim.core.api import objects
     from pxr import UsdPhysics
 
     payload_prim = objects.DynamicCuboid(
@@ -113,6 +108,7 @@ class Track(IsaacEnv):
     | `reward_distance_scale` | float | 1.2           | Scales the reward based on the distance between the drone and its target.                                                                                                                                                               |
     | `time_encoding`         | bool  | True          | Indicates whether to include time encoding in the observation space. If set to True, a 4-dimensional vector encoding the current progress of the episode is included in the observation. If set to False, this feature is not included. |
     """
+
     def __init__(self, cfg, headless):
         self.reset_thres = cfg.task.reset_thres
         self.reward_effort_weight = cfg.task.reward_effort_weight
@@ -201,10 +197,10 @@ class Track(IsaacEnv):
 
     def _set_specs(self):
         drone_obs_dim = (
-            self.drone.state_spec.shape[-1]
-            + 3 * (self.future_traj_steps - 1)
-            + 2  # reference xy heading
-            + self.drone.action_spec.shape[-1]  # last action
+                self.drone.state_spec.shape[-1]
+                + 3 * (self.future_traj_steps - 1)
+                + 2  # reference xy heading
+                + self.drone.action_spec.shape[-1]  # last action
         )
 
         intrinsics_spec = self.drone.intrinsics_spec.to(self.device)
@@ -392,7 +388,7 @@ class Track(IsaacEnv):
     def _compute_reward_and_done(self):
         pos_error = torch.norm(self.rpos[:, [0]], dim=-1)
         heading_alignment = (
-            self.ref_heading.unsqueeze(1) * normalize(self.drone.heading[..., :2])
+                self.ref_heading.unsqueeze(1) * normalize(self.drone.heading[..., :2])
         ).sum(-1)
 
         reward_pose = torch.exp(-self.reward_distance_scale * pos_error)
@@ -401,14 +397,14 @@ class Track(IsaacEnv):
         reward_effort = self.reward_effort_weight * torch.exp(-self.effort)
 
         reward = (
-            reward_pose
-            + reward_pose * (reward_heading)
-            + reward_effort
+                reward_pose
+                + reward_pose * (reward_heading)
+                + reward_effort
         )
 
         misbehave = (
-            (self.drone.pos[..., 2] < 0.1)
-            | (pos_error > self.reset_thres)
+                (self.drone.pos[..., 2] < 0.1)
+                | (pos_error > self.reset_thres)
         )
         hasnan = torch.isnan(self.drone_state).any(-1)
 

@@ -27,8 +27,8 @@ from torchrl.data import BoundedTensorSpec, UnboundedContinuousTensorSpec
 from omni_drones.robots.drone import MultirotorBase
 from omni_drones.robots.robot import ASSET_PATH
 
-class Omav(MultirotorBase):
 
+class Omav(MultirotorBase):
     usd_path: str = ASSET_PATH + "/usd/omav.usd"
     param_path: str = ASSET_PATH + "/usd/omav.yaml"
 
@@ -62,7 +62,7 @@ class Omav(MultirotorBase):
 
         return self.throttle.sum(-1)
 
-    def _reset_idx(self, env_ids: torch.Tensor, train: bool=True):
+    def _reset_idx(self, env_ids: torch.Tensor, train: bool = True):
         env_ids = super()._reset_idx(env_ids, train)
         self._view.set_joint_positions(
             self.init_joint_positions[env_ids],
@@ -81,4 +81,3 @@ class Omav(MultirotorBase):
         state = torch.cat([state, joint_positions, joint_velocities], dim=-1)
         assert not torch.isnan(state).any()
         return state
-

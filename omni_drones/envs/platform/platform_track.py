@@ -24,15 +24,15 @@
 import torch
 import torch.distributions as D
 from torch.func import vmap
+from tensordict.tensordict import TensorDict, TensorDictBase
+from torchrl.data import UnboundedContinuousTensorSpec, DiscreteTensorSpec
+from torchrl.data import Composite as CompositeSpec
 
-import omni.isaac.core.objects as objects
-from omni.isaac.debug_draw import _debug_draw
+# Todo
+import isaacsim.core.api.objects as objects
+from isaacsim.util.debug_draw import _debug_draw
 
 import omni_drones.utils.kit as kit_utils
-
-from tensordict.tensordict import TensorDict, TensorDictBase
-from torchrl.data import UnboundedContinuousTensorSpec, CompositeSpec, DiscreteTensorSpec
-
 from omni_drones.envs.isaac_env import AgentSpec, IsaacEnv
 from omni_drones.views import RigidPrimView
 from omni_drones.utils.torch import cpos, off_diag, others, normalize, quat_rotate
@@ -95,6 +95,7 @@ class PlatformTrack(IsaacEnv):
     | `reward_distance_scale` | float | 1.2           |             |
     | `time_encoding`         | bool  | True          |             |
     """
+
     def __init__(self, cfg, headless):
         self.reset_thres = cfg.task.reset_thres
         self.reward_effort_weight = cfg.task.reward_effort_weight
@@ -106,7 +107,7 @@ class PlatformTrack(IsaacEnv):
 
         self.num_drones = cfg.task.num_drones
         self.arm_length = cfg.task.arm_length
-        self.joint_damping  = cfg.task.joint_damping
+        self.joint_damping = cfg.task.joint_damping
         super().__init__(cfg, headless)
 
         self.platform.initialize()
@@ -191,14 +192,14 @@ class PlatformTrack(IsaacEnv):
 
     def _set_specs(self):
         drone_state_dim = self.drone.state_spec.shape.numel()
-        frame_state_dim = 22 + (self.future_traj_steps-1) * 3
+        frame_state_dim = 22 + (self.future_traj_steps - 1) * 3
         if self.time_encoding:
             self.time_encoding_dim = 4
             frame_state_dim += self.time_encoding_dim
 
         observation_spec = CompositeSpec({
             "obs_self": UnboundedContinuousTensorSpec((1, drone_state_dim + self.drone.n)),
-            "obs_others": UnboundedContinuousTensorSpec((self.drone.n-1, 13)),
+            "obs_others": UnboundedContinuousTensorSpec((self.drone.n - 1, 13)),
             "state_frame": UnboundedContinuousTensorSpec((1, frame_state_dim)),
         }).to(self.device)
         observation_central_spec = CompositeSpec({
@@ -267,7 +268,7 @@ class PlatformTrack(IsaacEnv):
 
         self.stats[env_ids] = 0.
 
-        if self._should_render(0) and (env_ids == self.central_env_idx).any() :
+        if self._should_render(0) and (env_ids == self.central_env_idx).any():
             # visualize the trajectory
             self.draw.clear_lines()
 
@@ -319,14 +320,14 @@ class PlatformTrack(IsaacEnv):
         obs["state_frame"] = platform_state.unsqueeze(1).expand(-1, self.drone.n, 1, -1)
 
         state = TensorDict({}, [self.num_envs])
-        state["state_drones"] = obs["obs_self"].squeeze(2)    # [num_envs, drone.n, drone_state_dim]
-        state["state_frame"] = platform_state                # [num_envs, 1, platform_state_dim]
+        state["state_drones"] = obs["obs_self"].squeeze(2)  # [num_envs, drone.n, drone_state_dim]
+        state["state_frame"] = platform_state  # [num_envs, 1, platform_state_dim]
 
         self.up_alignment = torch.sum(self.platform.up * target_up, dim=-1)
 
-        self.stats["pos_error"].lerp_(self.target_distance, (1-self.alpha))
-        self.stats["heading_alignment"].lerp_(self.up_alignment, (1-self.alpha))
-        self.stats["action_smoothness"].lerp_(-self.drone.throttle_difference.mean(-1, True), (1-self.alpha))
+        self.stats["pos_error"].lerp_(self.target_distance, (1 - self.alpha))
+        self.stats["heading_alignment"].lerp_(self.up_alignment, (1 - self.alpha))
+        self.stats["action_smoothness"].lerp_(-self.drone.throttle_difference.mean(-1, True), (1 - self.alpha))
 
         return TensorDict(
             {
@@ -351,21 +352,22 @@ class PlatformTrack(IsaacEnv):
         reward_spin = 1. / (1 + torch.square(spinnage))
 
         reward_effort = self.reward_effort_weight * torch.exp(-self.effort).mean(-1, keepdim=True)
-        reward_action_smoothness = self.reward_action_smoothness_weight * torch.exp(-self.drone.throttle_difference).mean(-1, keepdim=True)
+        reward_action_smoothness = self.reward_action_smoothness_weight * torch.exp(
+            -self.drone.throttle_difference).mean(-1, keepdim=True)
 
         assert reward_pose.shape == reward_up.shape == reward_action_smoothness.shape
 
         reward = torch.zeros(self.num_envs, self.drone.n, device=self.device)
         reward[:] = (
-            reward_pose
-            + reward_pose * (reward_up + reward_spin)
-            + reward_effort
-            + reward_action_smoothness
+                reward_pose
+                + reward_pose * (reward_up + reward_spin)
+                + reward_effort
+                + reward_action_smoothness
         )
 
         misbehave = (
-            (self.drone_states[..., 2] < 0.2).any(-1, keepdim=True)
-            | (self.target_distance > self.reset_thres)
+                (self.drone_states[..., 2] < 0.2).any(-1, keepdim=True)
+                | (self.target_distance > self.reset_thres)
         )
         hasnan = torch.isnan(self.drone_states).any(-1)
 
@@ -387,7 +389,7 @@ class PlatformTrack(IsaacEnv):
             self.batch_size,
         )
 
-    def _compute_traj(self, steps: int, env_ids=None, step_size: float=1.):
+    def _compute_traj(self, steps: int, env_ids=None, step_size: float = 1.):
         if env_ids is None:
             env_ids = ...
         t = self.progress_buf[env_ids].unsqueeze(1) + step_size * torch.arange(steps, device=self.device)
@@ -398,4 +400,3 @@ class PlatformTrack(IsaacEnv):
         target_pos = vmap(quat_rotate)(traj_rot, target_pos) * self.traj_scale[env_ids].unsqueeze(1)
 
         return self.origin + target_pos
-

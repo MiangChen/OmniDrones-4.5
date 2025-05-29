@@ -1,6 +1,5 @@
 import logging
 import os
-import time
 
 import hydra
 import torch
@@ -14,7 +13,6 @@ from omni_drones.utils.torchrl.transforms import (
     FromMultiDiscreteAction,
     FromDiscreteAction,
     ravel_composite,
-    History
 )
 from omni_drones.utils.wandb import init_wandb
 from omni_drones.learning import (
@@ -36,7 +34,7 @@ from torchrl.envs.transforms import (
 )
 
 from tqdm import tqdm
-import matplotlib.pyplot as plt
+
 
 class Every:
     def __init__(self, func, steps):
@@ -49,8 +47,10 @@ class Every:
             self.func(*args, **kwargs)
         self.i += 1
 
+
 from typing import Sequence
 from tensordict import TensorDictBase
+
 
 class EpisodeStats:
     def __init__(self, in_keys: Sequence[str] = None):
@@ -107,7 +107,7 @@ def main(cfg):
 
     stats_keys = [
         k for k in base_env.observation_spec.keys(True, True)
-        if isinstance(k, tuple) and k[0]=="stats"
+        if isinstance(k, tuple) and k[0] == "stats"
     ]
     transforms = [InitTracker()]
 
@@ -148,7 +148,7 @@ def main(cfg):
 
     stats_keys = [
         k for k in base_env.observation_spec.keys(True, True)
-        if isinstance(k, tuple) and k[0]=="stats"
+        if isinstance(k, tuple) and k[0] == "stats"
     ]
     episode_stats = EpisodeStats(stats_keys)
     collector = SyncDataCollector(
@@ -162,7 +162,7 @@ def main(cfg):
 
     @torch.no_grad()
     def evaluate(
-        seed: int = 0,
+            seed: int = 0,
     ):
         frames = []
 
@@ -189,7 +189,7 @@ def main(cfg):
         first_done = torch.argmax(done.long(), dim=1).cpu()
 
         def take_first_episode(tensor: torch.Tensor):
-            indices = first_done.reshape(first_done.shape+(1,)*(tensor.ndim-2))
+            indices = first_done.reshape(first_done.shape + (1,) * (tensor.ndim - 2))
             return torch.take_along_dim(tensor, indices, dim=1).reshape(-1)
 
         traj_stats = {
@@ -263,7 +263,6 @@ def main(cfg):
         logging.info(f"Saved checkpoint to {str(ckpt_path)}")
     except AttributeError:
         logging.warning(f"Policy {policy} does not implement `.state_dict()`")
-
 
     wandb.finish()
 

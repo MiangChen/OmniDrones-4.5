@@ -21,40 +21,34 @@
 # SOFTWARE.
 
 
+from collections import defaultdict
 import logging
-from typing import Type, Dict
+import pprint
+from typing import Dict
+import yaml
 
 import torch
 import torch.distributions as D
-import yaml
 from torch.func import vmap
-from tensordict.nn import make_functional
-from torchrl.data import BoundedTensorSpec, CompositeSpec, UnboundedContinuousTensorSpec
+
+from torchrl.data import BoundedTensorSpec, UnboundedContinuousTensorSpec
+from torchrl.data import Composite as CompositeSpec
 from tensordict import TensorDict
 
 from omni_drones.views import RigidPrimView
 from omni_drones.actuators.rotor_group import RotorGroup
-from omni_drones.controllers import ControllerBase
 from omni_drones.robots import RobotBase, RobotCfg
-from omni_drones.utils.torch import (
-    normalize, off_diag, quat_rotate, quat_rotate_inverse, quat_axis, symlog
-)
-
-from dataclasses import dataclass
-from collections import defaultdict
-
-import pprint
+from omni_drones.utils.torch import normalize, off_diag, quat_rotate, quat_rotate_inverse, quat_axis
 
 
 class MultirotorBase(RobotBase):
-
     param_path: str
 
     def __init__(
-        self,
-        name: str = None,
-        cfg: RobotCfg=None,
-        is_articulation: bool = True,
+            self,
+            name: str = None,
+            cfg: RobotCfg = None,
+            is_articulation: bool = True,
     ) -> None:
         super().__init__(name, cfg, is_articulation)
 
@@ -85,9 +79,9 @@ class MultirotorBase(RobotBase):
         return self._action_spec
 
     def initialize(
-        self,
-        prim_paths_expr: str = None,
-        track_contact_forces: bool = False
+            self,
+            prim_paths_expr: str = None,
+            track_contact_forces: bool = False
     ):
         if self.is_articulation:
             super().initialize(prim_paths_expr=prim_paths_expr)
@@ -126,8 +120,12 @@ class MultirotorBase(RobotBase):
 
         rotor_config = self.params["rotor_configuration"]
         self.rotors = RotorGroup(rotor_config, dt=self.dt).to(self.device)
+        # todo
+        # rotor_params = make_functional(self.rotors)
+        # from torch.func import functional_call
+        rotor_params_dict = dict(self.rotors.named_parameters())
+        rotor_params = TensorDict(rotor_params_dict, batch_size=[])
 
-        rotor_params = make_functional(self.rotors)
         self.KF_0 = rotor_params["KF"].clone()
         self.KM_0 = rotor_params["KM"].clone()
         self.MAX_ROT_VEL = (
@@ -135,13 +133,15 @@ class MultirotorBase(RobotBase):
             .float()
             .to(self.device)
         )
-        self.rotor_params = rotor_params.expand(self.shape).clone()
+        # self.MAX_ROT_VEL = torch.tensor([8000, 8000, 8000, 8000], device=self.device)
+
+        self.rotor_params = rotor_params.expand(self.shape).clone()  # 这行的位置一定不可以改
 
         self.tau_up = self.rotor_params["tau_up"]
         self.tau_down = self.rotor_params["tau_down"]
-        self.KF = self.rotor_params["KF"]
-        self.KM = self.rotor_params["KM"]
-        self.throttle = self.rotor_params["throttle"]
+        self.KF = self.rotor_params["KF"]  # [4]
+        self.KM = self.rotor_params["KM"]  # [4]
+        self.throttle = self.rotor_params["throttle"]  #  [1,4,4]
         self.directions = self.rotor_params["directions"]
 
         self.thrusts = torch.zeros(*self.shape, self.num_rotors, 3, device=self.device)
@@ -172,7 +172,7 @@ class MultirotorBase(RobotBase):
             .diagonal(0, -2, -1)
             .clone()
         )
-        self.THRUST2WEIGHT_0 = self.KF_0 / (self.MASS_0 * 9.81) # TODO: get the real g
+        self.THRUST2WEIGHT_0 = self.KF_0 / (self.MASS_0 * 9.81)  # TODO: get the real g
         self.FORCE2MOMENT_0 = torch.broadcast_to(self.KF_0 / self.KM_0, self.THRUST2WEIGHT_0.shape)
 
         logging.info(str(self))
@@ -241,12 +241,16 @@ class MultirotorBase(RobotBase):
         logging.info(f"Setup randomization:\n" + pprint.pformat(dict(self.randomization)))
 
     def apply_action(self, actions: torch.Tensor) -> torch.Tensor:
-        rotor_cmds = actions.expand(*self.shape, self.num_rotors)
+        rotor_cmds = actions.expand(*self.shape, self.num_rotors)  # action是
         last_throttle = self.throttle.clone()
-        thrusts, moments = vmap(vmap(self.rotors, randomness="different"), randomness="same")(
-            rotor_cmds, self.rotor_params
-        )
-
+        # todo
+        thrusts, moments, self.throttle = vmap(vmap(self.rotors, randomness="different"), randomness="same")(
+            rotor_cmds, self.throttle.clone()
+        )  # [1,4,4]
+        # print(self.throttle)
+        # v = 3.2 * 1000
+        # thrusts = torch.tensor([[[v, v, v, v]]], device=self.device)
+        # self.throttle = thrusts / 1000
         rotor_pos, rotor_rot = self.rotors_view.get_world_poses()
         torque_axis = quat_axis(rotor_rot.flatten(end_dim=-2), axis=2).unflatten(0, (*self.shape, self.num_rotors))
 
@@ -282,7 +286,7 @@ class MultirotorBase(RobotBase):
         self.throttle_difference[:] = torch.norm(self.throttle - last_throttle, dim=-1)
         return self.throttle.sum(-1)
 
-    def get_state(self, check_nan: bool=False, env_frame: bool=True):
+    def get_state(self, check_nan: bool = False, env_frame: bool = True):
         self.pos[:], self.rot[:] = self.get_world_poses(True)
         if env_frame and hasattr(self, "_envs_positions"):
             self.pos.sub_(self._envs_positions)
@@ -306,7 +310,7 @@ class MultirotorBase(RobotBase):
             assert not torch.isnan(state).any()
         return state
 
-    def _reset_idx(self, env_ids: torch.Tensor, train: bool=True):
+    def _reset_idx(self, env_ids: torch.Tensor, train: bool = True):
         if env_ids is None:
             env_ids = torch.arange(self.shape[0], device=self.device)
         self.thrusts[env_ids] = 0.0
@@ -357,11 +361,11 @@ class MultirotorBase(RobotBase):
             self.drag_coef[env_ids] = drag_coef
             self.intrinsics["drag_coef"][env_ids] = drag_coef
         if "tau_up" in distributions:
-            tau_up = distributions["tau_up"].sample(shape+self.rotors_view.shape[1:])
+            tau_up = distributions["tau_up"].sample(shape + self.rotors_view.shape[1:])
             self.tau_up[env_ids] = tau_up
             self.intrinsics["tau_up"][env_ids] = tau_up
         if "tau_down" in distributions:
-            tau_down = distributions["tau_down"].sample(shape+self.rotors_view.shape[1:])
+            tau_down = distributions["tau_down"].sample(shape + self.rotors_view.shape[1:])
             self.tau_down[env_ids] = tau_down
             self.intrinsics["tau_down"][env_ids] = tau_down
 
@@ -370,14 +374,14 @@ class MultirotorBase(RobotBase):
 
     def get_linear_smoothness(self):
         return - (
-            torch.norm(self.acc[..., :3], dim=-1)
-            + torch.norm(self.jerk[..., :3], dim=-1)
+                torch.norm(self.acc[..., :3], dim=-1)
+                + torch.norm(self.jerk[..., :3], dim=-1)
         )
 
     def get_angular_smoothness(self):
         return - (
-            torch.sum(self.acc[..., 3:].abs(), dim=-1)
-            + torch.sum(self.jerk[..., 3:].abs(), dim=-1)
+                torch.sum(self.acc[..., 3:].abs(), dim=-1)
+                + torch.sum(self.jerk[..., 3:].abs(), dim=-1)
         )
 
     def __str__(self):
@@ -392,11 +396,11 @@ class MultirotorBase(RobotBase):
 
     @staticmethod
     def downwash(
-        p0: torch.Tensor,
-        p1: torch.Tensor,
-        p1_t: torch.Tensor,
-        kr: float=2,
-        kz: float=1,
+            p0: torch.Tensor,
+            p1: torch.Tensor,
+            p1_t: torch.Tensor,
+            kr: float = 2,
+            kz: float = 1,
     ):
         """
         A highly simplified downwash effect model.
@@ -408,12 +412,12 @@ class MultirotorBase(RobotBase):
         """
         z, r = separation(p0, p1, normalize(p1_t))
         z = torch.clip(z, 0)
-        v = torch.exp(-0.5 * torch.square(kr * r / z)) / (1 + kz * z)**2
+        v = torch.exp(-0.5 * torch.square(kr * r / z)) / (1 + kz * z) ** 2
         f = off_diag(v * - p1_t)
         return f
 
     @staticmethod
-    def make(drone_model: str, controller: str=None, device: str="cpu"):
+    def make(drone_model: str, controller: str = None, device: str = "cpu"):
         drone_cls = MultirotorBase.REGISTRY[drone_model]
         drone = drone_cls()
         from omni_drones.controllers import ControllerBase
@@ -424,11 +428,10 @@ class MultirotorBase(RobotBase):
 
 
 def separation(p0, p1, p1_d):
-    rel_pos = rel_pos =  p1.unsqueeze(0) - p0.unsqueeze(1)
+    rel_pos = rel_pos = p1.unsqueeze(0) - p0.unsqueeze(1)
     z_distance = (rel_pos * p1_d).sum(-1, keepdim=True)
     z_displacement = z_distance * p1_d
 
     r_displacement = rel_pos - z_displacement
     r_distance = torch.norm(r_displacement, dim=-1, keepdim=True)
     return z_distance, r_distance
-

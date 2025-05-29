@@ -2,11 +2,9 @@ import os
 
 import hydra
 import torch
-from torch.func import vmap
+
 from omegaconf import OmegaConf
 from omni_drones import init_simulation_app
-
-from tensordict import TensorDict
 
 
 @hydra.main(version_base=None, config_path=".", config_name="demo")
@@ -15,10 +13,10 @@ def main(cfg):
     simulation_app = init_simulation_app(cfg)
     print(OmegaConf.to_yaml(cfg))
 
-    import omni.isaac.core.objects as objects
-    import omni.isaac.core.utils.prims as prim_utils
+
+    from isaacsim.core.api import SimulationContext
+
     import omni_drones.utils.scene as scene_utils
-    from omni.isaac.core.simulation_context import SimulationContext
     from omni_drones.envs.transport.utils import TransportationGroup, TransportationCfg
     from omni_drones.robots.drone import MultirotorBase
 
@@ -89,9 +87,8 @@ if __name__ == "__main__":
 
 """
 
-from omni.isaac.core.articulations import ArticulationView
-from omni.isaac.core.prims import RigidPrimView
-
+from isaacsim.core.api.articulations import ArticulationView
+from isaacsim.core.prims import RigidPrim as RigidPrimView
 a = ArticulationView("/World/envs/env_0/TransportationGroup_0")
 a.initialize()
 

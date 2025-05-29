@@ -4,13 +4,13 @@ import hydra
 import torch
 import wandb
 
-from torch.func import vmap
 from tqdm import trange
 from omegaconf import OmegaConf
 
-from omni_drones import init_simulation_app
-from torchrl.data import CompositeSpec
+from torchrl.data import Composite as CompositeSpec
 from torchrl.envs.utils import set_exploration_type, ExplorationType
+from torchrl.envs.transforms import TransformedEnv, InitTracker, Compose
+from omni_drones import init_simulation_app
 from omni_drones.utils.torchrl.transforms import (
     FromMultiDiscreteAction,
     FromDiscreteAction,
@@ -22,7 +22,6 @@ from omni_drones.utils.torchrl import RenderCallback, EpisodeStats
 from omni_drones.learning import ALGOS
 
 from setproctitle import setproctitle
-from torchrl.envs.transforms import TransformedEnv, InitTracker, Compose
 
 
 @hydra.main(version_base=None, config_path=".", config_name="demo_task")
@@ -35,7 +34,8 @@ def main(cfg):
     run = wandb.init()
     setproctitle(run.name)
 
-    model_artifact = run.use_artifact(f"{cfg.wandb.entity}/{cfg.wandb.project}/{cfg.wandb.artifact_name}:{cfg.wandb.artifact_version}")
+    model_artifact = run.use_artifact(
+        f"{cfg.wandb.entity}/{cfg.wandb.project}/{cfg.wandb.artifact_name}:{cfg.wandb.artifact_version}")
     model_dir = model_artifact.download()
     model_filename = "checkpoint_final.pt"
     for key in getattr(model_artifact, "_manifest").entries.keys():
@@ -72,9 +72,9 @@ def main(cfg):
         transform = ravel_composite(base_env.observation_spec, ("agents", "observation_central"))
         transforms.append(transform)
     if (
-        artifact_cfg.task.get("ravel_intrinsics", True)
-        and ("agents", "intrinsics") in base_env.observation_spec.keys(True)
-        and isinstance(base_env.observation_spec[("agents", "intrinsics")], CompositeSpec)
+            artifact_cfg.task.get("ravel_intrinsics", True)
+            and ("agents", "intrinsics") in base_env.observation_spec.keys(True)
+            and isinstance(base_env.observation_spec[("agents", "intrinsics")], CompositeSpec)
     ):
         transforms.append(ravel_composite(base_env.observation_spec, ("agents", "intrinsics"), start_dim=-1))
 
@@ -111,7 +111,7 @@ def main(cfg):
 
     stats_keys = [
         k for k in base_env.observation_spec.keys(True, True)
-        if isinstance(k, tuple) and k[0]=="stats"
+        if isinstance(k, tuple) and k[0] == "stats"
     ]
     episode_stats = EpisodeStats(stats_keys)
 
@@ -121,7 +121,7 @@ def main(cfg):
 
     @torch.no_grad()
     def evaluate(
-        exploration_type: ExplorationType=ExplorationType.MODE
+            exploration_type: ExplorationType = ExplorationType.MODE
     ):
         render_callback = RenderCallback(interval=2)
 
@@ -140,7 +140,7 @@ def main(cfg):
         first_done = torch.argmax(done.long(), dim=1).cpu()
 
         def take_first_episode(tensor: torch.Tensor):
-            indices = first_done.reshape(first_done.shape+(1,)*(tensor.ndim-2))
+            indices = first_done.reshape(first_done.shape + (1,) * (tensor.ndim - 2))
             return torch.take_along_dim(tensor, indices, dim=1).reshape(-1)
 
         traj_stats = {

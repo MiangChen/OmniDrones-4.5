@@ -24,26 +24,36 @@
 import abc
 
 from typing import Dict, List, Optional, Tuple, Type, Union, Callable
-
-import omni.usd
-import torch
 import logging
-import carb
-import numpy as np
-from omni.isaac.cloner import GridCloner
-from omni.isaac.core.simulation_context import SimulationContext
-from omni.isaac.core.utils import prims as prim_utils, stage as stage_utils
-from omni.isaac.core.utils.extensions import enable_extension
-from omni.isaac.core.utils.viewports import set_camera_view
 
+import numpy as np
 from tensordict.tensordict import TensorDict, TensorDictBase
-from torchrl.data import CompositeSpec, TensorSpec, DiscreteTensorSpec
+import torch
+from torchrl.data import TensorSpec, DiscreteTensorSpec
+from torchrl.data import Composite as CompositeSpec
 from torchrl.envs import EnvBase
+
+# todo
+# from omni.isaac.cloner import GridCloner
+# from omni.isaac.core.simulation_context import SimulationContext
+# from omni.isaac.core.utils import prims as prim_utils, stage as stage_utils
+# from omni.isaac.core.utils.extensions import enable_extension
+# from omni.isaac.core.utils.viewports import set_camera_view
+# from omni.isaac.debug_draw import _debug_draw
+
+import carb
+import omni.usd
+from isaacsim.core.cloner import GridCloner
+from isaacsim.core.api import SimulationContext
+import isaacsim.core.utils.prims as prim_utils
+import isaacsim.core.utils.stage as stage_utils
+from isaacsim.core.utils.extensions import enable_extension
+from isaacsim.core.utils.viewports import set_camera_view
+from isaacsim.util.debug_draw import _debug_draw
 
 from omni_drones.robots.robot import RobotBase
 from omni_drones.utils.torchrl import AgentSpec
 
-from omni.isaac.debug_draw import _debug_draw
 
 class DebugDraw:
     def __init__(self):
@@ -75,7 +85,6 @@ class DebugDraw:
 
 
 class IsaacEnv(EnvBase):
-
     env_ns = "/World/envs"
     template_env_ns = "/World/envs/env_0"
 
@@ -113,7 +122,7 @@ class IsaacEnv(EnvBase):
         self.sim = SimulationContext(
             stage_units_in_meters=1.0,
             physics_dt=self.cfg.sim.dt,
-            rendering_dt=self.cfg.sim.dt, # * self.cfg.sim.substeps,
+            rendering_dt=self.cfg.sim.dt,  # * self.cfg.sim.substeps,
             backend="torch",
             sim_params=sim_params,
             physics_prim_path="/physicsScene",
@@ -186,7 +195,6 @@ class IsaacEnv(EnvBase):
         import pprint
         pprint.pprint(self.fake_tensordict().shapes)
 
-
     @classmethod
     def __init_subclass__(cls, **kwargs):
         if cls.__name__ in IsaacEnv.REGISTRY:
@@ -230,7 +238,7 @@ class IsaacEnv(EnvBase):
         raise NotImplementedError
 
     def close(self):
-        return # TODO: fix this
+        return  # TODO: fix this
         if not self._is_closed:
             # stop physics simulation (precautionary)
             self.sim.stop()
@@ -351,7 +359,7 @@ class IsaacEnv(EnvBase):
         else:
             return pos + self.envs_positions, rot
 
-    def enable_render(self, enable: Union[bool, Callable]=True):
+    def enable_render(self, enable: Union[bool, Callable] = True):
         if isinstance(enable, bool):
             self._should_render = lambda substep: enable
         elif callable(enable):
@@ -359,7 +367,7 @@ class IsaacEnv(EnvBase):
         else:
             raise TypeError("enable_render must be a bool or callable.")
 
-    def render(self, mode: str="human"):
+    def render(self, mode: str = "human"):
         if mode == "human":
             return None
         elif mode == "rgb_array":
@@ -417,4 +425,3 @@ class _AgentSpecView(Dict[str, AgentSpec]):
     def __setitem__(self, k: str, v: AgentSpec) -> None:
         v._env = self.env
         return self.env._agent_spec.__setitem__(k, v)
-

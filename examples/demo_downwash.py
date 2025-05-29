@@ -1,12 +1,9 @@
-import os
-
-from typing import Dict, Optional
 import torch
 
 import hydra
 from omegaconf import OmegaConf
 from omni_drones import init_simulation_app
-from tensordict import TensorDict
+
 
 
 @hydra.main(version_base=None, config_path=".", config_name="demo")
@@ -14,9 +11,9 @@ def main(cfg):
     OmegaConf.resolve(cfg)
     simulation_app = init_simulation_app(cfg)
     print(OmegaConf.to_yaml(cfg))
-
+    # todo
     import omni_drones.utils.scene as scene_utils
-    from omni.isaac.core.simulation_context import SimulationContext
+    from isaacsim.core.api import SimulationContext
     from omni_drones.robots.drone import MultirotorBase
     from omni_drones.sensors.camera import Camera, PinholeCameraCfg
     import dataclasses

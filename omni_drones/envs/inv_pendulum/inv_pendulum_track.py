@@ -25,12 +25,13 @@ import torch
 import torch.distributions as D
 from torch.func import vmap
 from tensordict.tensordict import TensorDict, TensorDictBase
-from torchrl.data import UnboundedContinuousTensorSpec, CompositeSpec, DiscreteTensorSpec
+from torchrl.data import UnboundedContinuousTensorSpec
+from torchrl.data import Composite as CompositeSpec
 
-import omni.isaac.core.objects as objects
+# Todo
+from isaacsim.util.debug_draw import _debug_draw
+
 import omni_drones.utils.kit as kit_utils
-from omni.isaac.debug_draw import _debug_draw
-
 from omni_drones.utils.torch import euler_to_quaternion, normalize, quat_rotate
 from omni_drones.envs.isaac_env import AgentSpec, IsaacEnv
 from omni_drones.robots.drone import MultirotorBase
@@ -86,6 +87,7 @@ class InvPendulumTrack(IsaacEnv):
     | `reward_distance_scale` | float | 1.2       | Scales the reward based on the distance between the payload and its target.                                                                                                                                                             |
     | `time_encoding`         | bool  | True      | Indicates whether to include time encoding in the observation space. If set to True, a 4-dimensional vector encoding the current progress of the episode is included in the observation. If set to False, this feature is not included. |
     """
+
     def __init__(self, cfg, headless):
         self.reset_thres = cfg.task.reset_thres
         self.reward_effort_weight = cfg.task.reward_effort_weight
@@ -173,7 +175,7 @@ class InvPendulumTrack(IsaacEnv):
 
     def _set_specs(self):
         drone_state_dim = self.drone.state_spec.shape[-1]
-        observation_dim = drone_state_dim + 3 * (self.future_traj_steps-1) + 9
+        observation_dim = drone_state_dim + 3 * (self.future_traj_steps - 1) + 9
         if self.time_encoding:
             self.time_encoding_dim = 4
             observation_dim += self.time_encoding_dim
@@ -261,17 +263,17 @@ class InvPendulumTrack(IsaacEnv):
         self.target_payload_rpos = target_pos - payload_pos.unsqueeze(1)
 
         obs = [
-            self.drone_payload_rpos, # 3
+            self.drone_payload_rpos,  # 3
             self.drone_state[..., 3:],
-            self.target_payload_rpos.flatten(1).unsqueeze(1), # self.future_traj_steps * 3
-            self.payload_vels.unsqueeze(1), # 6
+            self.target_payload_rpos.flatten(1).unsqueeze(1),  # self.future_traj_steps * 3
+            self.payload_vels.unsqueeze(1),  # 6
         ]
         if self.time_encoding:
             t = (self.progress_buf / self.max_episode_length).unsqueeze(-1)
             obs.append(t.expand(-1, self.time_encoding_dim).unsqueeze(1))
         obs = torch.cat(obs, dim=-1)
 
-        self.stats["action_smoothness"].lerp_(-self.drone.throttle_difference, (1-self.alpha))
+        self.stats["action_smoothness"].lerp_(-self.drone.throttle_difference, (1 - self.alpha))
 
         return TensorDict(
             {
@@ -287,7 +289,7 @@ class InvPendulumTrack(IsaacEnv):
 
         distance = torch.norm(self.target_payload_rpos[:, [0]], dim=-1)
         self.stats["tracking_error"].add_(-distance)
-        self.stats["tracking_error_ema"].lerp_(distance, (1-self.alpha))
+        self.stats["tracking_error_ema"].lerp_(distance, (1 - self.alpha))
 
         reward_pos = torch.exp(-self.reward_distance_scale * distance)
 
@@ -299,9 +301,9 @@ class InvPendulumTrack(IsaacEnv):
         reward = reward_pos + reward_effort + reward_action_smoothness
 
         misbehave = (
-            (self.drone.pos[..., 2] < 0.2)
-            | (reward_bar_up < 0.2)
-            | (distance > self.reset_thres)
+                (self.drone.pos[..., 2] < 0.2)
+                | (reward_bar_up < 0.2)
+                | (distance > self.reset_thres)
         )
         hasnan = torch.isnan(self.drone_state).any(-1)
 
@@ -327,7 +329,7 @@ class InvPendulumTrack(IsaacEnv):
             self.batch_size,
         )
 
-    def _compute_traj(self, steps: int, env_ids=None, step_size: float=1.):
+    def _compute_traj(self, steps: int, env_ids=None, step_size: float = 1.):
         if env_ids is None:
             env_ids = ...
         t = self.progress_buf[env_ids].unsqueeze(1) + step_size * torch.arange(steps, device=self.device)

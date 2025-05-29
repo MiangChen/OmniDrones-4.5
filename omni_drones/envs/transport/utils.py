@@ -23,22 +23,23 @@
 
 from typing import Sequence, Union
 
-import omni.isaac.core.objects as objects
-import omni.isaac.core.utils.prims as prim_utils
-import omni.physx.scripts.utils as script_utils
+from dataclasses import dataclass
 import torch
 
-from omni.isaac.core.prims import RigidPrimView
+# todo
+# import omni.isaac.core.objects as objects
+import isaacsim.core.utils.prims as prim_utils
+from isaacsim.core.prims import RigidPrim as RigidPrimView
+import omni.physx.scripts.utils as script_utils
 from omni.kit.commands import execute
 from pxr import Gf, PhysxSchema, UsdGeom, UsdPhysics
 
 import omni_drones.utils.kit as kit_utils
 import omni_drones.utils.scene as scene_utils
-
 from omni_drones.robots import RobotBase, RobotCfg
 from omni_drones.robots.drone import MultirotorBase
 from omni_drones.utils.torch import quat_axis
-from dataclasses import dataclass
+
 
 @dataclass
 class TransportationCfg(RobotCfg):
@@ -48,14 +49,15 @@ class TransportationCfg(RobotCfg):
         if not self.num_drones in (4, 6):
             raise ValueError
 
+
 class TransportationGroup(RobotBase):
 
     def __init__(
-        self,
-        name: str = "Group",
-        drone: Union[str, MultirotorBase] = "Firefly",
-        cfg: TransportationCfg=None,
-        is_articulation=True,
+            self,
+            name: str = "Group",
+            drone: Union[str, MultirotorBase] = "Firefly",
+            cfg: TransportationCfg = None,
+            is_articulation=True,
     ) -> None:
         super().__init__(name, cfg, is_articulation)
         if isinstance(drone, str):
@@ -68,10 +70,10 @@ class TransportationGroup(RobotBase):
         self.alpha = 0.9
 
     def spawn(
-        self,
-        translations=...,
-        prim_paths: Sequence[str] = None,
-        enable_collision: bool = False,
+            self,
+            translations=...,
+            prim_paths: Sequence[str] = None,
+            enable_collision: bool = False,
     ):
 
         translations = torch.atleast_2d(
@@ -215,14 +217,14 @@ class TransportationGroup(RobotBase):
 
     def get_linear_smoothness(self):
         return - (
-            torch.norm(self.acc[..., :3], dim=-1)
-            + torch.norm(self.jerk[..., :3], dim=-1)
+                torch.norm(self.acc[..., :3], dim=-1)
+                + torch.norm(self.jerk[..., :3], dim=-1)
         )
 
     def get_angular_smoothness(self):
         return - (
-            torch.sum(self.acc[..., 3:].abs(), dim=-1)
-            + torch.sum(self.jerk[..., 3:].abs(), dim=-1)
+                torch.sum(self.acc[..., 3:].abs(), dim=-1)
+                + torch.sum(self.jerk[..., 3:].abs(), dim=-1)
         )
 
     def _reset_idx(self, env_ids: torch.Tensor):
@@ -231,4 +233,3 @@ class TransportationGroup(RobotBase):
         self.acc[env_ids] = 0.
         self.jerk[env_ids] = 0.
         return env_ids
-

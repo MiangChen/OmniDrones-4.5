@@ -31,7 +31,6 @@ from torchrl.data import (
     TensorSpec,
     BoundedTensorSpec,
     UnboundedContinuousTensorSpec as UnboundedTensorSpec,
-    CompositeSpec,
     TensorDictReplayBuffer
 )
 from torchrl.data.replay_buffers.storages import LazyTensorStorage

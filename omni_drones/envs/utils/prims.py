@@ -34,17 +34,21 @@
 import re
 import typing
 
-import omni.kit
-import omni.usd
-from omni.isaac.core.utils.semantics import add_update_semantics
 
-# isaacsim
-from omni.isaac.core.utils.stage import add_reference_to_stage, get_current_stage
-from omni.isaac.core.utils.string import find_root_prim_path_from_regex
-from omni.isaac.dynamic_control import _dynamic_control
-from omni.usd.commands import DeletePrimsCommand, MovePrimCommand
+# todo isaacsim
+# from omni.isaac.core.utils.semantics import add_update_semantics
+# from omni.isaac.core.utils.stage import add_reference_to_stage, get_current_stage
+# from omni.isaac.core.utils.string import find_root_prim_path_from_regex
+# from omni.isaac.dynamic_control import _dynamic_control  # is deprecated as of Isaac Sim 4.5. No action is needed from end-users."
+
+from isaacsim.core.utils.semantics import add_update_semantics
+from isaacsim.core.utils.stage import add_reference_to_stage, get_current_stage
+from isaacsim.core.utils.string import find_root_prim_path_from_regex
 
 # omniverse
+import omni.kit
+import omni.usd
+from omni.usd.commands import DeletePrimsCommand, MovePrimCommand
 from pxr import Usd, UsdGeom, UsdPhysics
 
 
@@ -398,7 +402,8 @@ def create_prim(
         Usd.Prim: The created USD prim.
     """
     # Note: Imported here to prevent cyclic dependency in the module.
-    from omni.isaac.core.prims import XFormPrim
+    # Todo
+    import isaacsim.core.prims.SingleXFormPrim as XFormPrim
 
     # create prim in stage
     prim = define_prim(prim_path=prim_path, prim_type=prim_type)

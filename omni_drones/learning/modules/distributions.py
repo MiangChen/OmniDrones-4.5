@@ -22,7 +22,6 @@
 
 
 import functools
-import math
 from numbers import Number
 from typing import List, Tuple, Union
 
@@ -136,6 +135,7 @@ class DiagGaussian(nn.Module):
 #         return -self.log_prob(self.rsample(self.batch_shape))
 from torchrl.modules.distributions import TanhNormal
 
+
 class IndependentNormal(D.Independent):
     arg_constraints = {"loc": constraints.real, "scale": constraints.positive}
 
@@ -147,12 +147,12 @@ class IndependentNormal(D.Independent):
 
 class IndependentBeta(D.Independent):
     def __init__(
-        self,
-        alpha: torch.Tensor,
-        beta: torch.Tensor,
-        min: Union[float, torch.Tensor] = 0.0,
-        max: Union[float, torch.Tensor] = 1.0,
-        event_dims: int = 1,
+            self,
+            alpha: torch.Tensor,
+            beta: torch.Tensor,
+            min: Union[float, torch.Tensor] = 0.0,
+            max: Union[float, torch.Tensor] = 1.0,
+            event_dims: int = 1,
     ):
         self.min = torch.as_tensor(min, device=alpha.device).broadcast_to(alpha.shape)
         self.max = torch.as_tensor(max, device=alpha.device).broadcast_to(alpha.shape)
@@ -175,12 +175,12 @@ class IndependentBeta(D.Independent):
 
 class IndependentNormalModule(nn.Module):
     def __init__(
-        self,
-        input_dim: int,
-        output_dim: int,
-        state_dependent_std: bool = False,
-        scale_mapping: str = "exp",
-        scale_lb: float = 1e-4,
+            self,
+            input_dim: int,
+            output_dim: int,
+            state_dependent_std: bool = False,
+            scale_mapping: str = "exp",
+            scale_lb: float = 1e-4,
     ):
         super().__init__()
         self.state_dependent_std = state_dependent_std
@@ -216,15 +216,15 @@ class TanhNormalWithEntropy(TanhNormal):
 
 class TanhIndependentNormalModule(nn.Module):
     def __init__(
-        self,
-        input_dim: int,
-        output_dim: int,
-        scale_mapping: str = "softplus",
-        state_dependent_std: bool = True,
-        scale_lb: float = 1e-4,
-        min: Union[torch.Tensor, Number] = -1.0,
-        max: Union[torch.Tensor, Number] = 1.0,
-        event_dims=1,
+            self,
+            input_dim: int,
+            output_dim: int,
+            scale_mapping: str = "softplus",
+            state_dependent_std: bool = True,
+            scale_lb: float = 1e-4,
+            min: Union[torch.Tensor, Number] = -1.0,
+            max: Union[torch.Tensor, Number] = 1.0,
+            event_dims=1,
     ):
         super().__init__()
         self.state_dependent_std = state_dependent_std
@@ -256,13 +256,13 @@ class TanhIndependentNormalModule(nn.Module):
 
 class IndependentBetaModule(nn.Module):
     def __init__(
-        self,
-        input_dim: int,
-        output_dim: int,
-        scale_mapping: str = "softplus",
-        min: Union[float, torch.Tensor] = 0.0,
-        max: Union[float, torch.Tensor] = 1.0,
-        event_dims: int = 1,
+            self,
+            input_dim: int,
+            output_dim: int,
+            scale_mapping: str = "softplus",
+            min: Union[float, torch.Tensor] = 0.0,
+            max: Union[float, torch.Tensor] = 1.0,
+            event_dims: int = 1,
     ):
         super().__init__()
         self.operator = nn.Linear(input_dim, output_dim * 2)
@@ -285,9 +285,9 @@ class IndependentBetaModule(nn.Module):
 
 class MultiCategorical(D.Distribution):
     def __init__(
-        self,
-        logits: List[torch.Tensor] = None,
-        probs: List[torch.Tensor] = None,
+            self,
+            logits: List[torch.Tensor] = None,
+            probs: List[torch.Tensor] = None,
     ):
         if (probs is None) == (logits is None):
             raise ValueError(
@@ -342,9 +342,9 @@ class MultiCategorical(D.Distribution):
 
 class MultiCategoricalModule(nn.Module):
     def __init__(
-        self,
-        input_dim: int,
-        output_dims: Union[List[int], torch.Tensor],
+            self,
+            input_dim: int,
+            output_dims: Union[List[int], torch.Tensor],
     ):
         super().__init__()
         self.operator = nn.Linear(input_dim, sum(output_dims))
@@ -362,10 +362,10 @@ class MultiCategoricalModule(nn.Module):
 
 class MultiOneHotCategorical(D.Independent):
     def __init__(
-        self,
-        logits: torch.Tensor = None,
-        probs: torch.Tensor = None,
-        unimix: float = 0.01
+            self,
+            logits: torch.Tensor = None,
+            probs: torch.Tensor = None,
+            unimix: float = 0.01
     ):
         if (probs is None) == (logits is None):
             raise ValueError(
@@ -381,12 +381,13 @@ class MultiOneHotCategorical(D.Independent):
             1
         )
 
+
 class TwoHot(D.Distribution):
     def __init__(
-        self,
-        logits: torch.Tensor,
-        low=-20.0,
-        high=20.0,
+            self,
+            logits: torch.Tensor,
+            low=-20.0,
+            high=20.0,
     ):
         super().__init__(batch_shape=logits.shape[:-1])
         self.logits = logits
@@ -417,11 +418,10 @@ class TwoHot(D.Distribution):
         weight_below = dist_to_above / total
         weight_above = dist_to_below / total
         target = (
-            F.one_hot(below, num_classes=len(self.buckets)) * weight_below[..., None]
-            + F.one_hot(above, num_classes=len(self.buckets)) * weight_above[..., None]
+                F.one_hot(below, num_classes=len(self.buckets)) * weight_below[..., None]
+                + F.one_hot(above, num_classes=len(self.buckets)) * weight_above[..., None]
         )
         log_pred = self.logits - torch.logsumexp(self.logits, -1, keepdim=True)
         target = target.squeeze(-2)
 
         return (target * log_pred).sum(-1)
-

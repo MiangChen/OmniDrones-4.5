@@ -23,10 +23,10 @@
 
 import torch
 from tensordict import TensorDict
-from collections import defaultdict
 
 from .mappo import MAPPOPolicy, make_dataset_naive
 from .utils.gae import compute_gae
+
 
 class HAPPOPolicy(MAPPOPolicy):
 
@@ -46,8 +46,8 @@ class HAPPOPolicy(MAPPOPolicy):
         ratio = torch.exp(log_probs_new - log_probs_old)
         surr1 = ratio * advantages
         surr2 = (
-            torch.clamp(ratio, 1.0 - self.clip_param, 1.0 + self.clip_param)
-            * advantages
+                torch.clamp(ratio, 1.0 - self.clip_param, 1.0 + self.clip_param)
+                * advantages
         )
         policy_loss = - torch.mean(factor * torch.min(surr1, surr2) * self.act_dim)
         entropy_loss = - torch.mean(dist_entropy)
@@ -100,7 +100,7 @@ class HAPPOPolicy(MAPPOPolicy):
         advantages_std = tensordict["advantages"].std()
         if self.normalize_advantages:
             tensordict["advantages"] = (tensordict["advantages"] - advantages_mean) / (
-                advantages_std + 1e-8
+                    advantages_std + 1e-8
             )
 
         if hasattr(self, "value_normalizer"):

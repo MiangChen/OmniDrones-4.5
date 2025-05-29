@@ -24,15 +24,12 @@
 import torch
 import torch.distributions as D
 from tensordict.tensordict import TensorDict, TensorDictBase
-from torchrl.data import (
-    UnboundedContinuousTensorSpec,
-    CompositeSpec,
-    BinaryDiscreteTensorSpec,
-    DiscreteTensorSpec
-)
+from torchrl.data import UnboundedContinuousTensorSpec, BinaryDiscreteTensorSpec
+from torchrl.data import Composite as CompositeSpec
 
-import omni.isaac.core.objects as objects
-from omni.isaac.debug_draw import _debug_draw
+# todo
+import isaacsim.core.api.objects as objects
+from isaacsim.util.debug_draw import _debug_draw
 
 import omni_drones.utils.kit as kit_utils
 from omni_drones.utils.torch import euler_to_quaternion
@@ -42,6 +39,7 @@ from omni_drones.views import RigidPrimView
 
 from ..utils import create_obstacle
 from .utils import attach_payload
+
 
 class PayloadFlyThrough(IsaacEnv):
     r"""
@@ -94,6 +92,7 @@ class PayloadFlyThrough(IsaacEnv):
     | `time_encoding`         | bool                | True          | Indicates whether to include time encoding in the observation space. If set to True, a 4-dimensional vector encoding the current progress of the episode is included in the observation. If set to False, this feature is not included. |
     | `obstacle_spacing`      | tuple[float, float] | [0.85, 0.85]  | Specifies the minimum and maximum distance between two horizontal bars (obstacles) in the environment.                                                                                                                                  |
     """
+
     def __init__(self, cfg, headless):
         self.reward_effort_weight = cfg.task.reward_effort_weight
         self.reward_distance_scale = cfg.task.reward_distance_scale
@@ -291,8 +290,8 @@ class PayloadFlyThrough(IsaacEnv):
         obs = [
             self.drone_payload_rpos,
             self.drone_state[..., 3:],
-            self.target_payload_rpos, # 3
-            self.payload_vels.unsqueeze(1), # 6
+            self.target_payload_rpos,  # 3
+            self.payload_vels.unsqueeze(1),  # 6
             obstacle_drone_rpos.flatten(start_dim=-2).unsqueeze(1),
         ]
         if self.time_encoding:
@@ -301,15 +300,15 @@ class PayloadFlyThrough(IsaacEnv):
         obs = torch.cat(obs, dim=-1)
 
         self.payload_pos_error = torch.norm(self.target_payload_rpos, dim=-1)
-        self.stats["payload_pos_error"].lerp_(self.payload_pos_error, (1-self.alpha))
-        self.stats["drone_uprightness"].lerp_(self.drone_up[..., 2], (1-self.alpha))
+        self.stats["payload_pos_error"].lerp_(self.payload_pos_error, (1 - self.alpha))
+        self.stats["drone_uprightness"].lerp_(self.drone_up[..., 2], (1 - self.alpha))
 
         if self._should_render(0):
             central_env_pos = self.envs_positions[self.central_env_idx]
-            drone_pos = (self.drone.pos[self.central_env_idx, 0]+central_env_pos).tolist()
-            payload_pos = (self.payload_pos[self.central_env_idx]+central_env_pos).tolist()
+            drone_pos = (self.drone.pos[self.central_env_idx, 0] + central_env_pos).tolist()
+            payload_pos = (self.payload_pos[self.central_env_idx] + central_env_pos).tolist()
 
-            if len(self.payload_traj_vis)>1:
+            if len(self.payload_traj_vis) > 1:
                 point_list_0 = [self.payload_traj_vis[-1], self.drone_traj_vis[-1]]
                 point_list_1 = [payload_pos, drone_pos]
                 colors = [(1., .1, .1, 1.), (.1, 1., .1, 1.)]
@@ -355,16 +354,16 @@ class PayloadFlyThrough(IsaacEnv):
         self.stats["collision"].add_(collision_reward)
         assert reward_pos.shape == reward_up.shape == reward_spin.shape == reward_swing.shape
         reward = (
-            reward_pos
-            + reward_pos * (reward_up + reward_spin + reward_swing)
-            + reward_effort
-        ) * (1 - collision_reward)
+                         reward_pos
+                         + reward_pos * (reward_up + reward_spin + reward_swing)
+                         + reward_effort
+                 ) * (1 - collision_reward)
 
         misbehave = (
-            (self.drone.pos[..., 2] < 0.2)
-            | (self.drone.pos[..., 2] > 2.5)
-            | (self.drone.pos[..., 1].abs() > 2.)
-            | (self.payload_pos[..., 2] < 0.15).unsqueeze(1)
+                (self.drone.pos[..., 2] < 0.2)
+                | (self.drone.pos[..., 2] > 2.5)
+                | (self.drone.pos[..., 1].abs() > 2.)
+                | (self.payload_pos[..., 2] < 0.15).unsqueeze(1)
         )
         hasnan = torch.isnan(self.drone_state).any(-1)
 

@@ -25,7 +25,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from tensordict.nn import TensorDictModule
-import numpy as np
 
 from torchrl.data import (
     TensorSpec,
@@ -44,13 +43,14 @@ from omni_drones.utils.torchrl import AgentSpec
 from tensordict import TensorDict
 from .common import soft_update
 
+
 class SACPolicy(object):
 
     def __init__(self,
-        cfg,
-        agent_spec: AgentSpec,
-        device: str="cuda",
-    ) -> None:
+                 cfg,
+                 agent_spec: AgentSpec,
+                 device: str = "cuda",
+                 ) -> None:
         self.cfg = cfg
         self.agent_spec = agent_spec
         self.device = device
@@ -96,7 +96,6 @@ class SACPolicy(object):
         else:
             raise NotImplementedError
 
-
     def make_critic(self):
         self.value_in_keys = [self.obs_name, self.act_name]
         self.value_out_keys = [f"{self.agent_spec.name}.q"]
@@ -112,7 +111,7 @@ class SACPolicy(object):
         self.critic_opt = torch.optim.Adam(self.critic.parameters(), lr=self.cfg.critic.lr)
         self.critic_loss_fn = {"mse": F.mse_loss, "smooth_l1": F.smooth_l1_loss}[self.cfg.critic_loss]
 
-    def __call__(self, tensordict: TensorDict, deterministic: bool=False) -> TensorDict:
+    def __call__(self, tensordict: TensorDict, deterministic: bool = False) -> TensorDict:
         # return tensordict.update({self.act_name: self.agent_spec.action_spec.zero()})
         actor_input = tensordict.select(*self.policy_in_keys)
         actor_input.batch_size = [*actor_input.batch_size, self.agent_spec.n]
@@ -120,7 +119,7 @@ class SACPolicy(object):
         tensordict.update(actor_output)
         return tensordict
 
-    def train_op(self, data: TensorDict, verbose: bool=False):
+    def train_op(self, data: TensorDict, verbose: bool = False):
         self.replay_buffer.extend(data.reshape(-1))
 
         if len(self.replay_buffer) < self.cfg.buffer_size:
@@ -130,18 +129,18 @@ class SACPolicy(object):
         infos_critic = []
         infos_actor = []
 
-        t = range(1, self.gradient_steps+1)
+        t = range(1, self.gradient_steps + 1)
 
         for gradient_step in tqdm(t) if verbose else t:
 
             transition = self.replay_buffer.sample()
 
-            state   = transition[self.obs_name]
+            state = transition[self.obs_name]
             actions = transition[self.act_name]
 
-            reward  = transition[("next", "agents", "reward")]
-            next_dones  = transition[("next", "done")].float().unsqueeze(-1)
-            next_state  = transition[("next", "agents", "observation")]
+            reward = transition[("next", "agents", "reward")]
+            next_dones = transition[("next", "done")].float().unsqueeze(-1)
+            next_state = transition[("next", "agents", "observation")]
 
             with torch.no_grad():
                 actor_output = self.actor(transition["next"], deterministic=False)
@@ -167,7 +166,6 @@ class SACPolicy(object):
             }, []))
 
             if (gradient_step + 1) % self.cfg.actor_delay == 0:
-
                 with hold_out_net(self.critic):
                     actor_output = self.actor(transition, deterministic=False)
                     act = actor_output[self.act_name]
@@ -194,7 +192,6 @@ class SACPolicy(object):
                         "alpha_loss": alpha_loss,
                     }, []))
 
-
             if (gradient_step + 1) % self.cfg.target_update_interval == 0:
                 with torch.no_grad():
                     soft_update(self.critic_target, self.critic, self.cfg.tau)
@@ -211,16 +208,18 @@ class SACPolicy(object):
         }
         return state_dict
 
+
 from .modules.networks import MLP
 from .modules.distributions import TanhIndependentNormalModule
 from .common import make_encoder
 
+
 class Actor(nn.Module):
     def __init__(self,
-        cfg,
-        observation_spec: TensorSpec,
-        action_spec: BoundedTensorSpec,
-    ) -> None:
+                 cfg,
+                 observation_spec: TensorSpec,
+                 action_spec: BoundedTensorSpec,
+                 ) -> None:
         super().__init__()
         self.cfg = cfg
         self.encoder = make_encoder(cfg, observation_spec)
@@ -230,7 +229,7 @@ class Actor(nn.Module):
             action_spec.shape[-1],
         )
 
-    def forward(self, obs: torch.Tensor, deterministic: bool=False):
+    def forward(self, obs: torch.Tensor, deterministic: bool = False):
         x = self.encoder(obs)
         act_dist = self.act(x)
 
@@ -245,12 +244,12 @@ class Actor(nn.Module):
 
 class Critic(nn.Module):
     def __init__(self,
-        cfg,
-        num_agents: int,
-        state_spec: TensorSpec,
-        action_spec: BoundedTensorSpec,
-        num_critics: int = 2,
-    ) -> None:
+                 cfg,
+                 num_agents: int,
+                 state_spec: TensorSpec,
+                 action_spec: BoundedTensorSpec,
+                 num_critics: int = 2,
+                 ) -> None:
         super().__init__()
         self.cfg = cfg
         self.num_agents = num_agents
@@ -287,5 +286,3 @@ class Critic(nn.Module):
         actions = actions.flatten(1)
         x = torch.cat([state, actions], dim=-1)
         return torch.stack([critic(x) for critic in self.critics], dim=-1)
-
-

@@ -26,13 +26,15 @@ import os.path as osp
 from contextlib import contextmanager
 from typing import Dict, Sequence, Type
 
-import omni.isaac.core.utils.prims as prim_utils
-import omni.isaac.core.utils.torch as torch_utils
-
+# todo
+import isaacsim.core.utils.prims as prim_utils
+import isaacsim.core.utils.torch as torch_utils
 import omni.timeline
+
 import torch
+# Todo
 from omni_drones.views import ArticulationView, RigidPrimView
-from omni.isaac.core.simulation_context import SimulationContext
+from isaacsim.core.api import SimulationContext
 from torchrl.data import TensorSpec
 
 import omni_drones.utils.kit as kit_utils
@@ -98,7 +100,9 @@ class RobotBase(abc.ABC):
         orientations=None,
         prim_paths: Sequence[str] = None
     ):
-        if SimulationContext.instance()._physics_sim_view is not None:
+        # todo
+        # if SimulationContext.instance()._physics_sim_view is not None:
+        if SimulationContext.instance().physics_sim_view is not None:
             raise RuntimeError(
                 "Cannot spawn robots after simulation_context.reset() is called."
             )
@@ -160,7 +164,8 @@ class RobotBase(abc.ABC):
         self,
         prim_paths_expr: str = None,
     ):
-        if SimulationContext.instance()._physics_sim_view is None:
+        # todo
+        if SimulationContext.instance().physics_sim_view is None:
             raise RuntimeError(
                 f"Cannot initialize {self.__class__.__name__} before the simulation context resets."
                 "Call simulation_context.reset() first."
@@ -173,7 +178,7 @@ class RobotBase(abc.ABC):
         # -- robot articulation
         if self.is_articulation:
             self._view = ArticulationView(
-                self.prim_paths_expr,
+                prim_paths_expr=self.prim_paths_expr,
                 reset_xform_properties=False,
                 shape=(-1, self.n)
             )

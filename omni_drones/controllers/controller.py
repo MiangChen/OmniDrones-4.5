@@ -4,8 +4,8 @@ import torch.nn as nn
 from torchrl.data import TensorSpec
 from typing import Dict
 
-class ControllerBase(nn.Module):
 
+class ControllerBase(nn.Module):
     action_spec: TensorSpec
     REGISTRY: Dict[str, "ControllerBase"] = {}
 

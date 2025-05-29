@@ -24,14 +24,12 @@
 import torch
 import torch.distributions as D
 from tensordict.tensordict import TensorDict, TensorDictBase
-from torchrl.data import (
-    UnboundedContinuousTensorSpec,
-    CompositeSpec,
-    DiscreteTensorSpec
-)
+from torchrl.data import UnboundedContinuousTensorSpec, DiscreteTensorSpec
+from torchrl.data import Composite as CompositeSpec
 
-import omni.isaac.core.objects as objects
-from omni.isaac.debug_draw import _debug_draw
+# todo
+import isaacsim.core.api.objects as objects
+from isaacsim.util.debug_draw import _debug_draw
 
 import omni_drones.utils.kit as kit_utils
 from omni_drones.utils.torch import euler_to_quaternion, normalize
@@ -41,6 +39,7 @@ from omni_drones.views import RigidPrimView
 
 from .utils import create_pendulum
 from ..utils import create_obstacle
+
 
 class InvPendulumFlyThrough(IsaacEnv):
     r"""
@@ -96,6 +95,7 @@ class InvPendulumFlyThrough(IsaacEnv):
     | `time_encoding`         | bool                | True          | Indicates whether to include time encoding in the observation space. If set to True, a 4-dimensional vector encoding the current progress of the episode is included in the observation. If set to False, this feature is not included. |
     | `obstacle_spacing`      | tuple[float, float] | [0.9, 1.2]    | Specifies the minimum and maximum distance between two horizontal bars (obstacles) in the environment.                                                                                                                                  |
     """
+
     def __init__(self, cfg, headless):
         self.reward_effort_weight = cfg.task.reward_effort_weight
         self.reward_distance_scale = cfg.task.reward_distance_scale
@@ -214,7 +214,7 @@ class InvPendulumFlyThrough(IsaacEnv):
 
         self.observation_spec = CompositeSpec({
             "agents": CompositeSpec({
-                "observation": UnboundedContinuousTensorSpec((1, observation_dim)) ,
+                "observation": UnboundedContinuousTensorSpec((1, observation_dim)),
             })
         }).expand(self.num_envs).to(self.device)
         self.action_spec = CompositeSpec({
@@ -295,11 +295,11 @@ class InvPendulumFlyThrough(IsaacEnv):
         obstacle_drone_rpos = self.obstacle_pos[..., [0, 2]] - self.drone_state[..., [0, 2]]
 
         obs = [
-            self.drone_payload_rpos, # 3
+            self.drone_payload_rpos,  # 3
             self.drone_state,
-            self.target_payload_rpos, # 3
-            self.payload_vels.unsqueeze(1), # 6
-            obstacle_drone_rpos.flatten(start_dim=-2).unsqueeze(1), # 4
+            self.target_payload_rpos,  # 3
+            self.payload_vels.unsqueeze(1),  # 6
+            obstacle_drone_rpos.flatten(start_dim=-2).unsqueeze(1),  # 4
         ]
         if self.time_encoding:
             t = (self.progress_buf / self.max_episode_length).unsqueeze(-1)
@@ -307,15 +307,15 @@ class InvPendulumFlyThrough(IsaacEnv):
         obs = torch.cat(obs, dim=-1)
 
         self.pos_error = torch.norm(self.target_payload_rpos, dim=-1)
-        self.stats["pos_error"].lerp_(self.pos_error, (1-self.alpha))
-        self.stats["action_smoothness"].lerp_(-self.drone.throttle_difference, (1-self.alpha))
+        self.stats["pos_error"].lerp_(self.pos_error, (1 - self.alpha))
+        self.stats["action_smoothness"].lerp_(-self.drone.throttle_difference, (1 - self.alpha))
 
         if self._should_render(0):
             central_env_pos = self.envs_positions[self.central_env_idx]
-            drone_pos = (self.drone.pos[self.central_env_idx, 0]+central_env_pos).tolist()
-            payload_pos = (self.payload_pos[self.central_env_idx]+central_env_pos).tolist()
+            drone_pos = (self.drone.pos[self.central_env_idx, 0] + central_env_pos).tolist()
+            payload_pos = (self.payload_pos[self.central_env_idx] + central_env_pos).tolist()
 
-            if len(self.payload_traj_vis)>1:
+            if len(self.payload_traj_vis) > 1:
                 point_list_0 = [self.payload_traj_vis[-1], self.drone_traj_vis[-1]]
                 point_list_1 = [payload_pos, drone_pos]
                 colors = [(1., .1, .1, 1.), (.1, 1., .1, 1.)]
@@ -364,17 +364,17 @@ class InvPendulumFlyThrough(IsaacEnv):
         self.stats["collision"].add_(collision_reward)
         assert bar_reward_up.shape == reward_spin.shape == reward_swing.shape
         reward = (
-            reward_pos
-            + reward_pos * (bar_reward_up + reward_spin + reward_swing)
-            # + success.float()
-            + reward_effort
-        ) * (1 - collision_reward)
+                         reward_pos
+                         + reward_pos * (bar_reward_up + reward_spin + reward_swing)
+                         # + success.float()
+                         + reward_effort
+                 ) * (1 - collision_reward)
 
         misbehave = (
-            (pos[..., 2] < 0.2)
-            | (pos[..., 1].abs() > 2.)
-            | (bar_reward_up < 0.1)
-            | (self.payload_pos[:, 2] > 3.).unsqueeze(-1)
+                (pos[..., 2] < 0.2)
+                | (pos[..., 1].abs() > 2.)
+                | (bar_reward_up < 0.1)
+                | (self.payload_pos[:, 2] > 3.).unsqueeze(-1)
         )
         hasnan = torch.isnan(self.drone_state).any(-1)
 

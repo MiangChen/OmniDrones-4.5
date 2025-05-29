@@ -40,14 +40,17 @@ from torchrl.data import (
     UnboundedContinuousTensorSpec,
     DiscreteTensorSpec,
     MultiDiscreteTensorSpec,
-    CompositeSpec,
 )
+from torchrl.data import Composite as CompositeSpec
+
 from .env import AgentSpec
 from dataclasses import replace
 
 
 def _transform_agent_spec(self: Transform, agent_spec: AgentSpec) -> AgentSpec:
     return agent_spec
+
+
 Transform.transform_agent_spec = _transform_agent_spec
 
 
@@ -55,20 +58,24 @@ def _transform_agent_spec(self: Compose, agent_spec: AgentSpec) -> AgentSpec:
     for transform in self.transforms:
         agent_spec = transform.transform_agent_spec(agent_spec)
     return agent_spec
+
+
 Compose.transform_agent_spec = _transform_agent_spec
 
 
 def _agent_spec(self: TransformedEnv) -> AgentSpec:
     agent_spec = self.transform.transform_agent_spec(self.base_env.agent_spec)
     return {name: replace(spec, _env=self) for name, spec in agent_spec.items()}
+
+
 TransformedEnv.agent_spec = property(_agent_spec)
 
 
 class FromDiscreteAction(Transform):
     def __init__(
-        self,
-        action_key: Tuple[str] = ("agents", "action"),
-        nbins: Union[int, Sequence[int]] = None,
+            self,
+            action_key: Tuple[str] = ("agents", "action"),
+            nbins: Union[int, Sequence[int]] = None,
     ):
         if nbins is None:
             nbins = 2
@@ -112,9 +119,9 @@ class FromDiscreteAction(Transform):
 
 class FromMultiDiscreteAction(Transform):
     def __init__(
-        self,
-        action_key: Tuple[str] = ("agents", "action"),
-        nbins: Union[int, Sequence[int]] = 2,
+            self,
+            action_key: Tuple[str] = ("agents", "action"),
+            nbins: Union[int, Sequence[int]] = 2,
     ):
         if action_key is None:
             action_key = "action"
@@ -156,11 +163,11 @@ class FromMultiDiscreteAction(Transform):
 
 class DepthImageNorm(Transform):
     def __init__(
-        self,
-        in_keys: Sequence[str],
-        min_range: float,
-        max_range: float,
-        inverse: bool=False
+            self,
+            in_keys: Sequence[str],
+            min_range: float,
+            max_range: float,
+            inverse: bool = False
     ):
         super().__init__(in_keys=in_keys)
         self.max_range = max_range
@@ -178,7 +185,7 @@ class DepthImageNorm(Transform):
 
 
 def ravel_composite(
-    spec: CompositeSpec, key: str, start_dim: int=-2, end_dim: int=-1
+        spec: CompositeSpec, key: str, start_dim: int = -2, end_dim: int = -1
 ):
     r"""
 
@@ -210,9 +217,9 @@ def ravel_composite(
 
 class RateController(Transform):
     def __init__(
-        self,
-        controller,
-        action_key: str = ("agents", "action"),
+            self,
+            controller,
+            action_key: str = ("agents", "action"),
     ):
         super().__init__([], in_keys_inv=[("info", "drone_state")])
         self.controller = controller
@@ -221,7 +228,7 @@ class RateController(Transform):
 
     def transform_input_spec(self, input_spec: TensorSpec) -> TensorSpec:
         action_spec = input_spec[("full_action_spec", *self.action_key)]
-        spec = UnboundedContinuousTensorSpec(action_spec.shape[:-1]+(4,), device=action_spec.device)
+        spec = UnboundedContinuousTensorSpec(action_spec.shape[:-1] + (4,), device=action_spec.device)
         input_spec[("full_action_spec", *self.action_key)] = spec
         return input_spec
 
@@ -242,9 +249,9 @@ class RateController(Transform):
 
 class AttitudeController(Transform):
     def __init__(
-        self,
-        controller,
-        action_key: str = ("agents", "action"),
+            self,
+            controller,
+            action_key: str = ("agents", "action"),
     ):
         super().__init__([], in_keys_inv=[("info", "drone_state")])
         self.controller = controller
@@ -253,7 +260,7 @@ class AttitudeController(Transform):
 
     def transform_input_spec(self, input_spec: TensorSpec) -> TensorSpec:
         action_spec = input_spec[("full_action_spec", *self.action_key)]
-        spec = UnboundedContinuousTensorSpec(action_spec.shape[:-1]+(4,), device=action_spec.device)
+        spec = UnboundedContinuousTensorSpec(action_spec.shape[:-1] + (4,), device=action_spec.device)
         input_spec[("full_action_spec", *self.action_key)] = spec
         return input_spec
 
@@ -263,7 +270,7 @@ class AttitudeController(Transform):
         target_thrust, target_yaw_rate, target_roll, target_pitch = action.split(1, dim=-1)
         cmds = self.controller(
             drone_state,
-            target_thrust=((target_thrust+1)/2).clip(0.) * self.max_thrust,
+            target_thrust=((target_thrust + 1) / 2).clip(0.) * self.max_thrust,
             target_yaw_rate=target_yaw_rate * torch.pi,
             target_roll=target_roll * torch.pi,
             target_pitch=target_pitch * torch.pi
@@ -275,10 +282,10 @@ class AttitudeController(Transform):
 
 class History(Transform):
     def __init__(
-        self,
-        in_keys: Sequence[str],
-        out_keys: Sequence[str]=None,
-        steps: int = 32,
+            self,
+            in_keys: Sequence[str],
+            out_keys: Sequence[str] = None,
+            steps: int = 32,
     ):
         if out_keys is None:
             out_keys = [
@@ -334,4 +341,3 @@ class History(Transform):
                 item_history = tensordict.get(out_key)
                 item_history[_reset] = 0.
         return tensordict
-

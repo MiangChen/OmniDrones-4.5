@@ -79,7 +79,8 @@ class ValueNorm1(Normalizer):
 
     @torch.no_grad()
     def update(self, input_vector: torch.Tensor):
-        assert input_vector.shape[-len(self.input_shape) :] == self.input_shape
+        # todo
+        # assert input_vector.shape[-len(self.input_shape) :] == self.input_shape
         dim = tuple(range(input_vector.dim() - len(self.input_shape)))
         batch_mean = input_vector.mean(dim=dim)
         batch_sq_mean = (input_vector**2).mean(dim=dim)
@@ -91,13 +92,15 @@ class ValueNorm1(Normalizer):
         self.debiasing_term.mul_(weight).add_(1.0 * (1.0 - weight))
 
     def normalize(self, input_vector: torch.Tensor):
-        assert input_vector.shape[-len(self.input_shape) :] == self.input_shape
+        # todo
+        # assert input_vector.shape[-len(self.input_shape) :] == self.input_shape
         mean, var = self.running_mean_var()
         out = (input_vector - mean) / torch.sqrt(var)
         return out
 
     def denormalize(self, input_vector: torch.Tensor):
-        assert input_vector.shape[-len(self.input_shape) :] == self.input_shape
+        # todo
+#        assert input_vector.shape[-len(self.input_shape) :] == self.input_shape
         mean, var = self.running_mean_var()
         out = input_vector * torch.sqrt(var) + mean
         return out

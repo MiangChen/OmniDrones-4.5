@@ -10,9 +10,9 @@ def main(cfg):
     OmegaConf.resolve(cfg)
     simulation_app = init_simulation_app(cfg)
     print(OmegaConf.to_yaml(cfg))
-
+    # todo
     import omni_drones.utils.scene as scene_utils
-    from omni.isaac.core.simulation_context import SimulationContext
+    from isaacsim.core.api import SimulationContext
     from omni_drones.sensors.camera import Camera, PinholeCameraCfg
     from omni_drones.robots.drone import Dragon
 

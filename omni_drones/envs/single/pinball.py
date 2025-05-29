@@ -21,26 +21,24 @@
 # SOFTWARE.
 
 
-import omni_drones.utils.kit as kit_utils
-from omni_drones.utils.torch import euler_to_quaternion, normalize
-import omni.isaac.core.utils.prims as prim_utils
-import omni.isaac.core.objects as objects
-import omni.isaac.core.materials as materials
 import torch
 import torch.distributions as D
+from tensordict.tensordict import TensorDict, TensorDictBase
+from torchrl.data import UnboundedContinuousTensorSpec
+from torchrl.data import Composite as CompositeSpec
 
+# Todo
+import isaacsim.core.api.objects as objects
+import isaacsim.core.api.materials as materials
+from isaaclab.sensors import ContactSensorCfg, ContactSensor
+
+import omni_drones.utils.kit as kit_utils
+from omni_drones.utils.torch import euler_to_quaternion, normalize
 from omni_drones.envs.isaac_env import AgentSpec, IsaacEnv
 from omni_drones.robots.drone import MultirotorBase
 from omni_drones.views import RigidPrimView
-from tensordict.tensordict import TensorDict, TensorDictBase
-from torchrl.data import (
-    UnboundedContinuousTensorSpec,
-    CompositeSpec,
-    DiscreteTensorSpec
-)
 from pxr import UsdShade, PhysxSchema
 
-from omni.isaac.lab.sensors import ContactSensorCfg, ContactSensor
 
 class Pinball(IsaacEnv):
     """
@@ -74,6 +72,7 @@ class Pinball(IsaacEnv):
     - the drone deviates to far from the origin.
     - the ball's z position is below 0.2 or above 4.5.
     """
+
     def __init__(self, cfg, headless):
         super().__init__(cfg, headless)
 
@@ -227,7 +226,7 @@ class Pinball(IsaacEnv):
         self.ball_vel = self.ball.get_velocities()
 
         # relative position and heading
-        self.rpos =  self.ball_pos - self.drone.pos
+        self.rpos = self.ball_pos - self.drone.pos
 
         obs = [self.drone_state, self.rpos, self.ball_vel[..., :3]]
         if self.time_encoding:
@@ -258,10 +257,10 @@ class Pinball(IsaacEnv):
         reward = reward_pos + 0.8 * reward_height + reward_score
 
         misbehave = (
-            (self.drone.pos[..., 2] < 0.3)
-            | (self.ball_pos[..., 2] < 0.2)
-            | (self.ball_pos[..., 2] > 4.5)
-            | (self.ball_pos[..., :2].abs() > 2.5).any(-1)
+                (self.drone.pos[..., 2] < 0.3)
+                | (self.ball_pos[..., 2] < 0.2)
+                | (self.ball_pos[..., 2] > 4.5)
+                | (self.ball_pos[..., :2].abs() > 2.5).any(-1)
         )
         hasnan = torch.isnan(self.drone_state).any(-1)
 

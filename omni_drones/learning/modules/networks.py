@@ -27,10 +27,10 @@ from typing import Dict, List, Optional, Sequence, Union
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch import Tensor
+from torchrl.data import Composite as CompositeSpec
 from tensordict import TensorDict
 
-from torch import Tensor
-from torchrl.data import CompositeSpec, TensorSpec
 
 
 def register(_map: Dict, name=None):
@@ -45,11 +45,11 @@ def register(_map: Dict, name=None):
 
 class MLP(nn.Module):
     def __init__(
-        self,
-        num_units: Sequence[int],
-        normalization: Union[str, nn.Module] = None,
-        activation_class: nn.Module = nn.ELU,
-        activation_kwargs: Optional[Dict] = None,
+            self,
+            num_units: Sequence[int],
+            normalization: Union[str, nn.Module] = None,
+            activation_class: nn.Module = nn.ELU,
+            activation_kwargs: Optional[Dict] = None,
     ):
         super().__init__()
         layers = []
@@ -95,12 +95,12 @@ class LFF(nn.Module):
     """
 
     def __init__(
-        self,
-        input_size,
-        sigma: float = 0.01,
-        fourier_dim=256,
-        embed_dim=72,
-        cat_input=True,
+            self,
+            input_size,
+            sigma: float = 0.01,
+            fourier_dim=256,
+            embed_dim=72,
+            cat_input=True,
     ) -> None:
         super().__init__()
         b_shape = (input_size, fourier_dim)
@@ -124,11 +124,11 @@ class LFF(nn.Module):
 
 class SplitEmbedding(nn.Module):
     def __init__(
-        self,
-        input_spec: CompositeSpec,
-        embed_dim: int = 72,
-        layer_norm=True,
-        embed_type="linear",
+            self,
+            input_spec: CompositeSpec,
+            embed_dim: int = 72,
+            layer_norm=True,
+            embed_type="linear",
     ) -> None:
         super().__init__()
         if any(isinstance(spec, CompositeSpec) for spec in input_spec.values()):
@@ -173,13 +173,13 @@ class RelationEncoder(nn.Module):
     """
 
     def __init__(
-        self,
-        input_spec: CompositeSpec,
-        *,
-        embed_dim: int = 72,
-        embed_type: str = "linear",
-        layer_norm=True,
-        f_units=(256, 128),
+            self,
+            input_spec: CompositeSpec,
+            *,
+            embed_dim: int = 72,
+            embed_type: str = "linear",
+            layer_norm=True,
+            f_units=(256, 128),
     ) -> None:
         super().__init__()
         self.output_shape = torch.Size((f_units[-1],))
@@ -212,13 +212,13 @@ class PartialRelationEncoder(nn.Module):
     """
 
     def __init__(
-        self,
-        input_spec: CompositeSpec,
-        *,
-        embed_dim: int = 72,
-        embed_type: str = "linear",
-        layer_norm=True,
-        f_units=(256, 128),
+            self,
+            input_spec: CompositeSpec,
+            *,
+            embed_dim: int = 72,
+            embed_type: str = "linear",
+            layer_norm=True,
+            f_units=(256, 128),
     ) -> None:
         super().__init__()
         self.output_shape = torch.Size((f_units[-1],))
@@ -248,16 +248,16 @@ class PartialRelationEncoder(nn.Module):
 @register(ENCODERS_MAP)
 class PartialAttentionEncoder(nn.Module):
     def __init__(
-        self,
-        input_spec: CompositeSpec,
-        *,
-        query_index=0,
-        embed_dim: int = 128,
-        embed_type: str = "linear",
-        num_heads: int = 1,
-        dim_feedforward=128,
-        layer_norm=True,
-        norm_first=False,
+            self,
+            input_spec: CompositeSpec,
+            *,
+            query_index=0,
+            embed_dim: int = 128,
+            embed_type: str = "linear",
+            num_heads: int = 1,
+            dim_feedforward=128,
+            layer_norm=True,
+            norm_first=False,
     ) -> None:
         super().__init__()
         self.embed_dim = embed_dim
@@ -316,14 +316,15 @@ def get_output_shape(net, input_size):
     _out = net(_x)
     return _out.shape
 
+
 class MixedEncoder(nn.Module):
     def __init__(
-        self,
-        cfg,
-        vision_obs_names: List[str] = [],
-        vision_encoder: nn.Module = None,
-        state_encoder: Optional[nn.Module] = None,
-        combine_mode: str = "concat",
+            self,
+            cfg,
+            vision_obs_names: List[str] = [],
+            vision_encoder: nn.Module = None,
+            state_encoder: Optional[nn.Module] = None,
+            combine_mode: str = "concat",
     ):
         super().__init__()
         self.vision_obs_names = vision_obs_names
@@ -365,11 +366,12 @@ class MixedEncoder(nn.Module):
 
 VISION_ENCODER_MAP = {}
 
+
 @register(VISION_ENCODER_MAP)
 class MobileNetV3Small(nn.Module):
     def __init__(
-        self,
-        input_size: torch.Size,
+            self,
+            input_size: torch.Size,
     ) -> None:
         super().__init__()
         self.input_size = input_size[2:]

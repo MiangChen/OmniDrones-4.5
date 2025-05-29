@@ -41,15 +41,20 @@ class GAE(nn.Module):
         next_value: torch.Tensor
     ):
         num_steps = terminated.shape[1]
-        advantages = torch.zeros_like(reward)
+        # todo
+        # advantages = torch.zeros_like(reward)  # torch.Size([128, 32, 1, 1])
+        advantages = torch.zeros_like(value)  # torch.Size([128, 32, 1, 1])
         not_done = 1 - terminated.float()
         gae = 0
-        for step in reversed(range(num_steps)):
+        for step in reversed(range(num_steps)): # num step = 32
             delta = (
-                reward[:, step]
-                + self.gamma * next_value[:, step] * not_done[:, step]
-                - value[:, step]
-            )
+                reward[:, step]  # torch.Size([128, 32, 1, 1]) -> torch.Size([128, 1, 1])
+                + self.gamma * next_value[:, step] * not_done[:, step]   # torch.Size([128, 32, 1, 128]) -> torch.Size([128, 1, 128])
+                - value[:, step]  # torch.Size([128, 32, 1, 128]) -> torch.Size([128, 1, 128])
+            )  # torch.Size([128, 1, 128])
+
+            # origin torch.Size([128, 1, 1]) = torch.Size([128, 1, 128])
+            # now torch.Size([128, 1, 128]) = torch.Size([128, 1, 128])
             advantages[:, step] = gae = delta + (self.gamma * self.lmbda * not_done[:, step] * gae)
         returns = advantages + value
         return advantages, returns

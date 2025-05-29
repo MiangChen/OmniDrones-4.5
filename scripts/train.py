@@ -1,35 +1,27 @@
 import logging
 import os
-import time
 
 import hydra
 import torch
-import numpy as np
-import pandas as pd
-import wandb
-import matplotlib.pyplot as plt
 
-from torch.func import vmap
-from tqdm import tqdm
+import wandb
+
 from omegaconf import OmegaConf
+from setproctitle import setproctitle
+from torchrl.envs.transforms import TransformedEnv, InitTracker, Compose
+from tqdm import tqdm
+from torchrl.envs.utils import set_exploration_type, ExplorationType
 
 from omni_drones import init_simulation_app
-from torchrl.data import CompositeSpec
-from torchrl.envs.utils import set_exploration_type, ExplorationType
 from omni_drones.utils.torchrl import SyncDataCollector
 from omni_drones.utils.torchrl.transforms import (
     FromMultiDiscreteAction,
     FromDiscreteAction,
     ravel_composite,
-    AttitudeController,
-    RateController,
 )
 from omni_drones.utils.wandb import init_wandb
 from omni_drones.utils.torchrl import RenderCallback, EpisodeStats
 from omni_drones.learning import ALGOS
-
-from setproctitle import setproctitle
-from torchrl.envs.transforms import TransformedEnv, InitTracker, Compose
 
 
 @hydra.main(version_base=None, config_path=".", config_name="train")
@@ -45,6 +37,7 @@ def main(cfg):
     from omni_drones.envs.isaac_env import IsaacEnv
 
     env_class = IsaacEnv.REGISTRY[cfg.task.name]
+    cfg.headless = False
     base_env = env_class(cfg, headless=cfg.headless)
 
     transforms = [InitTracker()]
@@ -75,6 +68,7 @@ def main(cfg):
     env = TransformedEnv(base_env, Compose(*transforms)).train()
     env.set_seed(cfg.seed)
 
+
     try:
         policy = ALGOS[cfg.algo.name.lower()](
             cfg.algo,
@@ -94,7 +88,7 @@ def main(cfg):
 
     stats_keys = [
         k for k in base_env.observation_spec.keys(True, True)
-        if isinstance(k, tuple) and k[0]=="stats"
+        if isinstance(k, tuple) and k[0] == "stats"
     ]
     episode_stats = EpisodeStats(stats_keys)
     collector = SyncDataCollector(
@@ -108,8 +102,8 @@ def main(cfg):
 
     @torch.no_grad()
     def evaluate(
-        seed: int=0,
-        exploration_type: ExplorationType=ExplorationType.MODE
+            seed: int = 0,
+            exploration_type: ExplorationType = ExplorationType.MODE
     ):
 
         base_env.enable_render(True)
@@ -135,7 +129,7 @@ def main(cfg):
         first_done = torch.argmax(done.long(), dim=1).cpu()
 
         def take_first_episode(tensor: torch.Tensor):
-            indices = first_done.reshape(first_done.shape+(1,)*(tensor.ndim-2))
+            indices = first_done.reshape(first_done.shape + (1,) * (tensor.ndim - 2))
             return torch.take_along_dim(tensor, indices, dim=1).reshape(-1)
 
         traj_stats = {
@@ -163,7 +157,7 @@ def main(cfg):
 
         return info
 
-    pbar = tqdm(collector, total=total_frames//frames_per_batch)
+    pbar = tqdm(collector, total=total_frames // frames_per_batch)
     env.train()
     for i, data in enumerate(pbar):
         info = {"env_frames": collector._frames, "rollout_fps": collector._fps}
