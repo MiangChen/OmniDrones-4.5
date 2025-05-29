@@ -15,4 +15,4 @@
 python examples/00_play_drones.py
 ```
 无人机可以渲染出来, 但是无法飞行
-![无人机无法飞行](docs/source/_static/bug1.jpg)
+![无人机无法飞行](docs/source/_static/bug/bug1.jpg)
