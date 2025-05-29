@@ -20,4 +20,5 @@ When running the following command:
 python examples/00_play_drones.py
 ```
 The drones render correctly, but they are unable to fly.
+
 ![drones unable to fly](docs/source/_static/bug/bug1.jpg)
